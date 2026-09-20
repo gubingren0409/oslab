@@ -46,7 +46,7 @@ run: build
 	$(QEMU) $(QEMUOPTS)
 
 # 调试目标：启动带GDB调试的QEMU
-debug: $(ELFKernel) .gdbinit
+debug: build .gdbinit
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 # 构建目标：创建输出目录并编译内核
