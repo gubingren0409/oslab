@@ -1,0 +1,48 @@
+# Build outputs
+*.o
+*.a
+*.so
+*.out
+*.elf
+*.bin
+*.img
+*.map
+*.sym
+*.asm
+*.d
+build/
+out/
+
+# QEMU and debugger state
+*.log
+*.pid
+*.gdb_history
+core
+core.*
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*~
+*.swp
+
+# Local environment and credentials
+.env
+.env.*
+*.key
+*.pem
+*.ppk
+
+# Virtual machines and installers
+*.iso
+*.ova
+*.ovf
+*.vmdk
+*.vmem
+*.vmss
+*.vmsn
+*.vmx
+*.vmxf
+*.nvram
