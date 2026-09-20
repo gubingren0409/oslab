@@ -7,6 +7,7 @@
 - Lab0 环境、QEMU 启动和 GDB 调试已经验证，记录见 [`docs/lab0.md`](docs/lab0.md)。
 - 教师发布仓库已配置为只读用途的 `course` 远端；个人提交只推送到 `origin`。
 - Lab1 的 Makefile、链接脚本、调试配置和源码骨架已从教师 `lab1` 分支导入。
+- 已补齐框架缺少的 GDB 初始化模板，并修正 `debug` 目标的内核 ELF 依赖。
 - VisionFive 2 的移植约束和分阶段方案已提前整理，见
   [`docs/visionfive2-porting.md`](docs/visionfive2-porting.md)。Lab1 仍以 QEMU `virt`
   验收为准，不在本阶段改写硬件路径。
