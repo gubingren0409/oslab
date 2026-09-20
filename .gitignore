@@ -1,5 +1,9 @@
 # Build outputs
+target/
+build/
+out/
 *.o
+*.d
 *.a
 *.so
 *.out
@@ -9,11 +13,9 @@
 *.map
 *.sym
 *.asm
-*.d
-build/
-out/
 
 # QEMU and debugger state
+.gdbinit
 *.log
 *.pid
 *.gdb_history
