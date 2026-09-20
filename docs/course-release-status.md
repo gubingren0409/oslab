@@ -56,5 +56,5 @@ Lab1 的非强制进阶目标包括 UEFI、从 DTB 动态读取 CPU/内存/设�
 - `lab-1`：已从 Lab0 基线创建，并导入 `course/lab1` 框架。
 - 尚未把 `course/lab2` 导入个人仓库；在助教明确发布 Lab2 前只用于了解后续接口方向。
 
-框架已在 VMware Ubuntu 中执行 `make clean && make build`。工具链正常进入编译，首次错误为
-空的 `int main()` 触发 `-Werror=return-type`，与实验 TODO 状态一致，并非环境故障。
+Lab1 框架现已完成实现，并在 VMware Ubuntu 中通过 `make clean && make build`、双核 QEMU、
+并发锁和 GDB 验证。实现与测试记录见 [`lab1.md`](lab1.md)。

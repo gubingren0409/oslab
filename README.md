@@ -1,20 +1,18 @@
 # LAB-1: 机器启动
 
-> 学生分支：`lab-1`；教师框架：`course/lab1` @ `e1f2efd5`；当前状态：框架已导入，实验实现尚未开始。
+> 学生分支：`lab-1`；教师框架：`course/lab1` @ `e1f2efd5`；当前状态：核心目标与课后并发实验已完成。
 
 ## 0. 本仓库准备情况
 
 - Lab0 环境、QEMU 启动和 GDB 调试已经验证，记录见 [`docs/lab0.md`](docs/lab0.md)。
 - 教师发布仓库已配置为只读用途的 `course` 远端；个人提交只推送到 `origin`。
-- Lab1 的 Makefile、链接脚本、调试配置和源码骨架已从教师 `lab1` 分支导入。
+- Lab1 的启动、格式化输出和自旋锁已经实现，完整记录见 [`docs/lab1.md`](docs/lab1.md)。
 - 已补齐框架缺少的 GDB 初始化模板，并修正 `debug` 目标的内核 ELF 依赖。
 - VisionFive 2 的移植约束和分阶段方案已提前整理，见
   [`docs/visionfive2-porting.md`](docs/visionfive2-porting.md)。Lab1 仍以 QEMU `virt`
   验收为准，不在本阶段改写硬件路径。
-- 虚拟机已补齐 DTB、U-Boot 镜像和串口调试工具；Lab1 框架能够进入交叉编译流程，
-  当前首次失败位于尚未实现的空 `main()`，不是环境缺失。
-- 当前仍需完成 `start.c`、`print.c`、`spinlock.c` 和 `main.c` 中的 TODO，并通过双核启动、
-  格式化输出和并发输出验证。
+- VMware 中已通过完整构建、双核 QEMU 启动、格式化输出边界、自旋锁并发累加、
+  无锁输出对照和 GDB 断点验证。
 
 发布状态与同步方法见 [`docs/course-release-status.md`](docs/course-release-status.md)。
 
@@ -36,20 +34,20 @@ ECNU-OSLAB-2026-TASK
         │   └── type.h  
         ├── boot   机器启动
         │   ├── entry.S  
-        │   └── start.c (TODO)  
+        │   └── start.c (DONE)
         ├── lock   锁机制
-        │   ├── spinlock.c (TODO)  
+        │   ├── spinlock.c (DONE)
         │   ├── method.h  
         │   ├── mod.h  
         │   └── type.h  
         ├── lib    常用库
         │   ├── cpu.c  
-        │   ├── print.c (TODO)  
+        │   ├── print.c (DONE)
         │   ├── uart.c  
         │   ├── method.h  
         │   ├── mod.h  
         │   └── type.h  
-        └── main.c (TODO)  
+        └── main.c (DONE)
 ```
 ## 2. 实验核心目标
 
