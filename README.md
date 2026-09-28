@@ -1,15 +1,130 @@
-# LAB-2: 内存管理初步
+# Lab2 实验报告：物理内存与内核虚拟内存
 
-## 本仓库完成状态
+- 学生：谷秉仁
+- 实验分支：`lab-2`
+- 课程框架：`course/lab2@79b9ad32`
+- 完成状态：必做内容已完成并通过验证
 
-Lab2 必做部分已在 `lab-2` 分支完成：OpenSBI/S-mode 启动、物理页分配器、
-Sv39 三级页表、内核等值映射与双 hart 启动均已实现。本分支从已完成的
-`lab-1` 创建，仅选择性导入课程 Lab2 框架，没有覆盖 Lab1 的 UART、`printf`
-和自旋锁成果。
+## 1. 实验目标
 
-构建与运行使用 VMware 中的 Ubuntu 22.04 环境，详细实现和验证记录见
-[`docs/lab2.md`](docs/lab2.md)。下方仍保留课程实验指导原文；代码结构中的
-`DONE` 表示本仓库已完成对应任务。
+1. 使用 OpenSBI 从 S-mode 启动内核，通过 SBI HSM 启动其余 hart。
+2. 把可分配物理内存按 4 KiB 页划分为内核池和用户池，实现并发安全的分配与回收。
+3. 实现 Sv39 三级页表的遍历、映射、重映射和解除映射。
+4. 建立内核等值映射，并让每个 hart 分别启用分页。
+
+## 2. 实验环境
+
+| 项目 | 配置 |
+| --- | --- |
+| 虚拟化 | VMware Workstation Pro 17 |
+| 操作系统 | Ubuntu 22.04.5 LTS |
+| 交叉编译器 | `riscv64-linux-gnu-gcc` 11.4.0 |
+| 模拟器 | QEMU 5.1.0，`virt`，2 hart，130 MiB RAM |
+| 固件 | OpenSBI 0.7，`-bios default` |
+| 调试器 | GDB multiarch 12.1 |
+| 内核入口 | `0x80200000` |
+
+所有构建、QEMU 和 GDB 验证均在 VMware 内执行。宿主机
+`E:\oslab\oslab` 通过 VMware 共享文件夹对应虚拟机的
+`/home/oslab/lab/oslab`。
+
+## 3. 实现与关键设计
+
+### 3.1 OpenSBI 启动与前序成果兼容
+
+本分支从已完成的 `lab-1` 创建，仅选择性导入 Lab2 框架，因此保留了
+Lab1 中已验证的 UART、`printf` 和自旋锁。新启动路径为：
+
+```text
+OpenSBI (M-mode)
+  -> _entry (S-mode)
+  -> start（将 a0 中的 hart ID 保存到 tp）
+  -> main
+```
+
+OpenSBI 选择的启动 hart 不一定是 hart 0。`main` 通过原子 CAS 让首个进入的 hart
+成为唯一初始化者，再用 SBI HSM 启动其余 hart。每个 hart 都执行
+`kvm_inithart()`，写入 `satp` 并刷新 TLB。
+
+### 3.2 物理页分配
+
+- 页大小为 4096 字节。
+- `ALLOC_BEGIN` 开始的前 1024 页属于内核池，其余直到 `ALLOC_END=0x88200000`
+  属于用户池。
+- 两个页池各自使用空闲链表、可分配页计数和自旋锁。
+- `pmem_alloc()` 在锁内摘除页面，返回前清零整页；耗尽时 `panic`。
+- `pmem_free()` 检查页对齐、页池范围和重复释放，然后在锁内回链。
+
+### 3.3 Sv39 与内核页表
+
+`vm_getpte()` 按 VPN[2]、VPN[1]、VPN[0] 遍历页表，需要时从内核页池申请并清零
+中间页表。`vm_mappages()` 支持非整页长度和已有叶 PTE 的重映射；
+`vm_unmappages()` 清除叶 PTE，并可选将用户物理页归还页池。
+
+| 区域 | 映射 | 权限 |
+| --- | --- | --- |
+| UART | VA = PA，1 页 | R/W |
+| CLINT | 不映射，由 OpenSBI 管理 | — |
+| PLIC | VA = PA，完整 MMIO 区 | R/W |
+| 内核代码 | `KERNEL_BASE` 至 `KERNEL_DATA` | R/X |
+| 内核数据与动态 RAM | `KERNEL_DATA` 至 `PHYS_MEM_END` | R/W |
+
+## 4. 测试与实际结果
+
+生产内核验收命令：
+
+```bash
+cd /home/oslab/lab/oslab
+make clean && make build
+riscv64-linux-gnu-readelf -h target/kernel/kernel-qemu.elf
+timeout 10s make run
+```
+
+| 检查 | 实际结果 |
+| --- | --- |
+| `-Wall -Werror` 干净构建 | 通过 |
+| ELF 入口 | `0x80200000` |
+| OpenSBI 双 hart 启动 | CPU 0 和 CPU 1 均输出启动信息 |
+| GDB 断点 | 命中 `main`，`pc=0x80200020` |
+
+临时专项内核在正式页表占用内核页之前，让两个 hart 并发分配和释放全部
+1024 个内核页，并覆盖用户页、跨页映射和权限矩阵。关键输出为：
+
+```text
+SELFTEST pmem-kernel parallel/full/zero: PASS
+SELFTEST pmem-user range/free/zero: PASS
+SELFTEST Sv39 map/remap/unmap/boundaries: PASS
+SELFTEST kernel permission matrix: PASS
+SELFTEST ALL LAB2 TESTS: PASS
+cpu 1 is booting with OpenSBI!
+cpu 0 is booting with OpenSBI!
+```
+
+专项测试还覆盖了 `PGSIZE+1` 跨 2 MiB 边界、`VA_MAX-PGSIZE`、同 VA 重映射以及
+CLINT 未映射。课程测试会建立 W-only PTE；这只用于检查页表结构，因为 RISC-V
+硬件将 R=0、W=1 视为保留编码，不应通过它实际访存。所有临时测试代码均已从最终内核移除。
+
+## 5. 理解、衔接与当前边界
+
+Lab1 解决了“内核如何启动并安全打印”，Lab2 则使用其自旋锁保护物理页池，并将内核
+从直接物理地址访问推进到 Sv39 虚拟地址翻译。内核目前仍使用 VA=PA 的等值映射，
+但已建立了后续用户页表、进程隔离和内存保护所需的基础。
+
+`course/lab3@00970e65` 目前只是预发布框架，缺少 Lab3 PPT、标签、Release 或
+`master` 公告，因此本次没有导入。VisionFive 2 适配也尚未完成：当前 OpenSBI/S-mode
+路径可以复用，但仍需要 DTB、实际 UART/PLIC 地址及 hart ID 到逻辑 CPU ID 的映射。
+
+## 6. 结论
+
+Lab2 必做任务已完成：物理页分配器能够在双 hart 下保持一致，Sv39 页表能正确
+建立和撤销映射，内核能在 OpenSBI 环境下启用分页并继续双 hart 运行。更完整的
+设计和验证细节见 [`docs/lab2.md`](docs/lab2.md)。
+
+---
+
+# 附录：课程实验指导原文
+
+下方保留课程框架中的实验指导；代码结构中的 `DONE` 表示对应任务已完成。
 
 **前言**
 
