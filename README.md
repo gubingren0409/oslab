@@ -217,7 +217,7 @@ ECNU-OSLAB-2026-TASK
 
 1. 对于entry.S: 不能执行类似**csrr**的M-mode特权指令, 还是需要执行SP指针的设置和PC指针跳转到start.c
 
-2. 对于start.c: hartid不能通过寄存器读取 (M-mode特权指令), OpenSBI会将hartid作为参数传入,感兴趣的同学可以自行ai搜寻一下这里面的传递参数的约定
+2. 对于start.c: hartid不能通过寄存器读取 (M-mode特权指令), OpenSBI会将hartid作为参数传入,具体传参约定可查阅 RISC-V 调用约定和 OpenSBI 文档
 
 3. 对于start.c: 不需要执行中断委托、时钟初始化、状态欺骗等, 因为OpenSBI的存在简化了这些工作, 此时就是S-mode
 
