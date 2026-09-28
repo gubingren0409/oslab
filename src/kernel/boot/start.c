@@ -3,38 +3,15 @@
 // 每个CPU在运行操作系统时需要一个初始的函数栈
 __attribute__((aligned(16))) uint8 CPU_stack[4096 * NCPU];
 
-extern void main(void);
+extern void main();
 
-void start(void)
+void start(uint64 hartid)
 {
-    // 暂时不开启分页，使用物理地址
+    // OpenSBI已在S-mode进入内核。HSM启动hart时satp也为0。
     w_satp(0);
+    sfence_vma();
 
-    // 切换到S-mode后无法访问M-mode的寄存器
-    // 所以需要将hartid存到可访问的寄存器tp
-    int id = r_mhartid();
-    w_tp(id);
+    // OpenSBI通过a0传入hartid,也就是当前函数的输入参数hartid，我们可以直接使用他,内核继续用tp保存它。
 
-    // 修改mstatus寄存器，假装上一个状态是S-mode
-    uint64 status = r_mstatus();
-    status &= ~MSTATUS_MPP_MASK;
-    status |= MSTATUS_MPP_S;
-    w_mstatus(status);
-
-    // 设置M-mode的返回地址
-    w_mepc((uint64)main);
-
-    // 将异常和中断委托给S-mode
-    w_medeleg(0xffff);
-    w_mideleg(0xffff);
-
-    // 允许S-mode读取cycle、time和instret计数器
-    w_mcounteren(0x7);
-
-    // 允许S-mode访问全部物理地址
-    asm volatile("csrw pmpaddr0, %0" : : "r"(0x3fffffffffffffull));
-    asm volatile("csrw pmpcfg0, %0" : : "r"(0xf));
-
-    // 触发状态迁移，回到上一个状态（M-mode->S-mode）
-    asm volatile("mret" ::: "memory");
+    // 进入main函数
 }

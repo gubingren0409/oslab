@@ -1,28 +1,41 @@
 #include "arch/mod.h"
 #include "lib/mod.h"
+#include "mem/mod.h"
+//_entry在kernel.ld中定义 将后续hart中的启动地址定义为该地址
+extern void _entry(void);
 
-// CPU 0完成公共资源初始化后，将该标志发布给其他CPU
-volatile static int started = 0;
+static volatile int initialized = 0;
 
 void main(void)
 {
-    int cpuid = mycpuid();
+    uint64 hartid = r_tp();
 
-    if (cpuid == 0)
+    if (hartid == 0)
     {
         print_init();
-        printf("cpu %d is booting!\n", cpuid);
-
-        // 保证初始化结果先于started对其他CPU可见
+        pmem_init();
+        kvm_init();
+        kvm_inithart();
         __sync_synchronize();
-        started = 1;
+        initialized = 1;
+
+        for (uint64 id = 1; id < NCPU; id++)
+        {
+            sbi_ret_t ret = sbi_hart_start(id, (uint64)_entry, 0);
+            if (ret.error != SBI_SUCCESS)
+            {
+                printf("failed to start cpu %d: error %d\n",
+                       (int)id, (int)ret.error);
+                panic("sbi_hart_start");
+            }
+        }
     }
     else
     {
-        while (started == 0)
+        while (!initialized)
             ;
         __sync_synchronize();
-        printf("cpu %d is booting!\n", cpuid);
+        printf("cpu %d is booting with OpenSBI!\n", (int)hartid);
     }
 
     while (1)
