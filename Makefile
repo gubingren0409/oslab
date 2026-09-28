@@ -46,7 +46,7 @@ run: build
 	$(QEMU) $(QEMUOPTS)
 
 # 调试目标：启动带GDB调试的QEMU
-debug: $(ELFKernel) .gdbinit
+debug: build .gdbinit
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
 # 构建目标：创建输出目录并编译内核
@@ -55,7 +55,6 @@ build: $(TARGET) $(ELFKernel)
 # 创建输出目录结构（如果不存在）
 .PHONY: $(TARGET)
 $(TARGET):
-ifeq ($(wildcard $(TARGET)),)
 	@mkdir -p $(TARGET)/kernel
 	@mkdir -p $(TARGET)/kernel/arch
 	@mkdir -p $(TARGET)/kernel/boot
@@ -63,7 +62,6 @@ ifeq ($(wildcard $(TARGET)),)
 	@mkdir -p $(TARGET)/kernel/lib
 	@mkdir -p $(TARGET)/kernel/mem
 	@mkdir -p $(TARGET)/kernel/trap
-endif
 
 # 编译规则：将汇编文件(.S)编译为目标文件(.o)
 $(TARGET)/kernel/%.o: $(KernelPath)/%.S

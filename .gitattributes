@@ -4,5 +4,8 @@
 *.c text eol=lf
 *.h text eol=lf
 *.S text eol=lf
+*.ld text eol=lf
+*.mk text eol=lf
+.gdbinit* text eol=lf
 Makefile text eol=lf
 *.md text eol=lf

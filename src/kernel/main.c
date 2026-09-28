@@ -1,26 +1,34 @@
 #include "arch/mod.h"
 #include "lib/mod.h"
 #include "mem/mod.h"
-//_entry在kernel.ld中定义 将后续hart中的启动地址定义为该地址
+
+// _entry在kernel.ld中定义，后续hart从该地址启动。
 extern void _entry(void);
 
-static volatile int initialized = 0;
+// OpenSBI会选择启动hart，它不一定是hart 0。
+// 0 = 未初始化，1 = 启动hart正在初始化，2 = 全局初始化完成。
+static volatile int init_state = 0;
 
 void main(void)
 {
     uint64 hartid = r_tp();
 
-    if (hartid == 0)
+    if (__sync_bool_compare_and_swap(&init_state, 0, 1))
     {
         print_init();
         pmem_init();
         kvm_init();
         kvm_inithart();
-        __sync_synchronize();
-        initialized = 1;
+        printf("cpu %d is booting with OpenSBI!\n", (int)hartid);
 
-        for (uint64 id = 1; id < NCPU; id++)
+        __sync_synchronize();
+        init_state = 2;
+
+        for (uint64 id = 0; id < NCPU; id++)
         {
+            if (id == hartid)
+                continue;
+
             sbi_ret_t ret = sbi_hart_start(id, (uint64)_entry, 0);
             if (ret.error != SBI_SUCCESS)
             {
@@ -32,9 +40,10 @@ void main(void)
     }
     else
     {
-        while (!initialized)
+        while (init_state != 2)
             ;
         __sync_synchronize();
+        kvm_inithart();
         printf("cpu %d is booting with OpenSBI!\n", (int)hartid);
     }
 

@@ -9,6 +9,35 @@ static pgtbl_t kernel_pgtbl;
 // 提示：使用 VA_TO_VPN + PTE_TO_PA + PA_TO_PTE
 pte_t *vm_getpte(pgtbl_t pgtbl, uint64 va, bool alloc)
 {
+    assert(pgtbl != NULL, "vm_getpte: null pagetable");
+    assert(((uint64)pgtbl % PGSIZE) == 0, "vm_getpte: unaligned pagetable");
+    assert(va < VA_MAX, "vm_getpte: va out of range");
+
+    for (int level = 2; level > 0; level--)
+    {
+        pte_t *pte = &pgtbl[VA_TO_VPN(va, level)];
+
+        if (*pte & PTE_V)
+        {
+            assert(PTE_CHECK(*pte), "vm_getpte: unexpected large page");
+            pgtbl = (pgtbl_t)PTE_TO_PA(*pte);
+            assert(((uint64)pgtbl % PGSIZE) == 0,
+                   "vm_getpte: unaligned child pagetable");
+            continue;
+        }
+
+        if (!alloc)
+            return NULL;
+
+        pgtbl = (pgtbl_t)pmem_alloc(true);
+        assert(pgtbl != NULL, "vm_getpte: cannot allocate pagetable");
+        assert(((uint64)pgtbl % PGSIZE) == 0,
+               "vm_getpte: allocated unaligned pagetable");
+        memset(pgtbl, 0, PGSIZE);
+        *pte = PA_TO_PTE(pgtbl) | PTE_V;
+    }
+
+    return &pgtbl[VA_TO_VPN(va, 0)];
 }
 
 // 在pgtbl中建立 [va, va + len) -> [pa, pa + len) 的映射
@@ -17,12 +46,74 @@ pte_t *vm_getpte(pgtbl_t pgtbl, uint64 va, bool alloc)
 // 注意: perm 应该如何使用
 void vm_mappages(pgtbl_t pgtbl, uint64 va, uint64 pa, uint64 len, int perm)
 {
+    const int allowed_perm = PTE_R | PTE_W | PTE_X | PTE_U |
+                             PTE_G | PTE_A | PTE_D;
+
+    assert(pgtbl != NULL, "vm_mappages: null pagetable");
+    assert(((uint64)pgtbl % PGSIZE) == 0,
+           "vm_mappages: unaligned pagetable");
+    assert((va % PGSIZE) == 0, "vm_mappages: va not page-aligned");
+    assert((pa % PGSIZE) == 0, "vm_mappages: pa not page-aligned");
+    assert(len > 0, "vm_mappages: zero length");
+    assert(va < VA_MAX && len <= VA_MAX - va,
+           "vm_mappages: va range out of bounds");
+    assert((perm & ~allowed_perm) == 0,
+           "vm_mappages: invalid permission bits");
+    assert((perm & (PTE_R | PTE_W | PTE_X)) != 0,
+           "vm_mappages: leaf has no permission");
+
+    uint64 last = va + ((len - 1) / PGSIZE) * PGSIZE;
+    uint64 span = last - va;
+    assert(pa <= ~(uint64)0 - span, "vm_mappages: pa range overflow");
+
+    for (;;)
+    {
+        pte_t *pte = vm_getpte(pgtbl, va, true);
+        assert(pte != NULL, "vm_mappages: pte allocation failed");
+        assert(!((*pte & PTE_V) && PTE_CHECK(*pte)),
+               "vm_mappages: invalid level-0 pagetable");
+
+        // Re-mapping an existing leaf is intentional: callers may replace
+        // its physical page or permissions without first unmapping it.
+        *pte = PA_TO_PTE(pa) | (uint64)perm | PTE_V;
+
+        if (va == last)
+            break;
+        va += PGSIZE;
+        pa += PGSIZE;
+    }
 }
 
 // 解除pgtbl中[va, va+len)区域的映射
 // 如果freeit == true则释放对应物理页, 默认是用户的物理页
 void vm_unmappages(pgtbl_t pgtbl, uint64 va, uint64 len, bool freeit)
 {
+    assert(pgtbl != NULL, "vm_unmappages: null pagetable");
+    assert(((uint64)pgtbl % PGSIZE) == 0,
+           "vm_unmappages: unaligned pagetable");
+    assert((va % PGSIZE) == 0, "vm_unmappages: va not page-aligned");
+    assert(len > 0, "vm_unmappages: zero length");
+    assert(va < VA_MAX && len <= VA_MAX - va,
+           "vm_unmappages: va range out of bounds");
+
+    uint64 last = va + ((len - 1) / PGSIZE) * PGSIZE;
+
+    for (;;)
+    {
+        pte_t *pte = vm_getpte(pgtbl, va, false);
+        assert(pte != NULL, "vm_unmappages: pte not found");
+        assert((*pte & PTE_V) != 0, "vm_unmappages: page not mapped");
+        assert(!PTE_CHECK(*pte), "vm_unmappages: non-leaf pte");
+
+        uint64 pa = PTE_TO_PA(*pte);
+        *pte = 0;
+        if (freeit)
+            pmem_free(pa, false);
+
+        if (va == last)
+            break;
+        va += PGSIZE;
+    }
 }
 
 // 完成UART、PLIC、内核代码区、内核数据区、可分配区域的页表映射
@@ -30,6 +121,25 @@ void vm_unmappages(pgtbl_t pgtbl, uint64 va, uint64 len, bool freeit)
 // 相当于部分填充kernel_pgtbl
 void kvm_init()
 {
+    assert(kernel_pgtbl == NULL, "kvm_init: already initialized");
+
+    kernel_pgtbl = (pgtbl_t)pmem_alloc(true);
+    assert(kernel_pgtbl != NULL, "kvm_init: cannot allocate pagetable");
+    assert(((uint64)kernel_pgtbl % PGSIZE) == 0,
+           "kvm_init: unaligned pagetable");
+    memset(kernel_pgtbl, 0, PGSIZE);
+
+    // Device registers are mapped read-write at their physical addresses.
+    vm_mappages(kernel_pgtbl, UART_BASE, UART_BASE, PGSIZE,
+                PTE_R | PTE_W);
+    vm_mappages(kernel_pgtbl, PLIC_BASE, PLIC_BASE, PLIC_SIZE,
+                PTE_R | PTE_W);
+
+    // OpenSBI occupies the RAM below KERNEL_BASE and remains unmapped.
+    vm_mappages(kernel_pgtbl, KERNEL_BASE, KERNEL_BASE,
+                (uint64)KERNEL_DATA - KERNEL_BASE, PTE_R | PTE_X);
+    vm_mappages(kernel_pgtbl, (uint64)KERNEL_DATA, (uint64)KERNEL_DATA,
+                PHYS_MEM_END - (uint64)KERNEL_DATA, PTE_R | PTE_W);
 }
 
 // 每个CPU都需要调用, 从不使用页表切换到使用内核页表
