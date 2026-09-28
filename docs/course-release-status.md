@@ -1,6 +1,6 @@
 # 课程发布仓库状态
 
-检查时间：2026-09-20（Asia/Shanghai）
+检查时间：2026-09-28（Asia/Shanghai）
 
 ## 连接方式
 
@@ -9,8 +9,8 @@
 - 课程发布远端：`course`
 - 本地发布仓库镜像：`E:\oslab\ecnu-oslab-2026-task`
 
-个人仓库与课程仓库拥有不同的提交历史，因此不直接合并教师分支。教师分支用作只读模板，
-每次实验开始时将当次框架导入自己的 `lab-N` 分支。
+个人仓库与课程仓库没有共同提交历史，因此不直接合并教师分支。教师分支用作只读模板，
+每次实验开始时仅将当次所需的框架文件选择性导入自己的 `lab-N` 分支，避免覆盖已完成的前序实验成果。
 
 检查更新：
 
@@ -32,10 +32,11 @@ git log -1 --oneline course/master
 | --- | --- | --- | --- |
 | Lab0 | 已发布 | `course/master` 的 Lab0 PPT 和环境文档 | `bd82890` |
 | Lab1 | 已正式发布 | `course/master` 的 Lab1 PPT、`course/lab1` 的代码框架 | `bd82890` / `e1f2efd` |
-| Lab2 | 框架已公开，尚不能据此认定正式布置 | `course/lab2`；`master` 尚无 Lab2 PPT | `79b9ad3` |
-| Lab3 及以后 | 未发现 | 无对应分支或课件 | — |
+| Lab2 | 已正式发布 | `course/lab2` 代码框架；`course/master` 的 `拔尖班-lab-2.pptx` | `79b9ad32` / `0c3849a` |
+| Lab3 | 预发布框架可见，尚未正式布置 | `course/lab3`；未发现 Lab3 PPT、标签、Release 或 `master` 公告 | `00970e65` |
+| Lab4 及以后 | 未发现 | 无对应分支、课件或公告 | — |
 
-远端目前只有 `master`、`lab1`、`lab2` 三个分支，没有 Git 标签或 Gitee Release。
+远端目前只有 `master`、`lab1`、`lab2`、`lab3` 四个分支，没有 Git 标签或 Gitee Release。
 
 ## Lab1 核心要求
 
@@ -53,8 +54,9 @@ Lab1 的非强制进阶目标包括 UEFI、从 DTB 动态读取 CPU/内存/设�
 
 - `master`：按课程命名保存 Lab0 稳定检查点。
 - `main`：建仓时产生的默认分支，目前与 `master` 指向同一提交；在 Gitee 默认分支切换前保留。
-- `lab-1`：已从 Lab0 基线创建，并导入 `course/lab1` 框架。
-- 尚未把 `course/lab2` 导入个人仓库；在助教明确发布 Lab2 前只用于了解后续接口方向。
+- `lab-1`：保留已完成的 Lab1 成果，本次导入未修改该分支。
+- `lab-2`：已从 `lab-1` 创建，并从 `course/lab2` 选择性导入 Lab2 框架，以兼容前序实验实现。
+- `course/lab3` 目前仅作为预发布内容参考，暂不导入个人仓库。
 
 Lab1 框架现已完成实现，并在 VMware Ubuntu 中通过 `make clean && make build`、双核 QEMU、
 并发锁和 GDB 验证。实现与测试记录见 [`lab1.md`](lab1.md)。

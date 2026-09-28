@@ -1,5 +1,16 @@
 # LAB-2: 内存管理初步
 
+## 本仓库完成状态
+
+Lab2 必做部分已在 `lab-2` 分支完成：OpenSBI/S-mode 启动、物理页分配器、
+Sv39 三级页表、内核等值映射与双 hart 启动均已实现。本分支从已完成的
+`lab-1` 创建，仅选择性导入课程 Lab2 框架，没有覆盖 Lab1 的 UART、`printf`
+和自旋锁成果。
+
+构建与运行使用 VMware 中的 Ubuntu 22.04 环境，详细实现和验证记录见
+[`docs/lab2.md`](docs/lab2.md)。下方仍保留课程实验指导原文；代码结构中的
+`DONE` 表示本仓库已完成对应任务。
+
 **前言**
 
 在lab-1中, 我们学习了机器启动流程、UART设备驱动、格式化输出和自旋锁
@@ -29,7 +40,7 @@ ECNU-OSLAB-2025-TASK
         │   └── type.h(CHANGE)
         ├── boot   机器启动
         │   ├── entry.S(CHANGE, 从 a0 取得 hart ID，并将其传入start)
-        │   └── start.c(TODO, 删除M-mode的寄存器操作)
+        │   └── start.c(DONE, 删除M-mode的寄存器操作)
         ├── lock   锁机制
         │   ├── spinlock.c
         │   ├── method.h
@@ -44,8 +55,8 @@ ECNU-OSLAB-2025-TASK
         │   ├── mod.h
         │   └── type.h
         ├── mem    内存模块
-        │   ├── pmem.c (TODO, 物理内存管理)
-        │   ├── kvm.c (TODO, 内核态虚拟内存管理)
+        │   ├── pmem.c (DONE, 物理内存管理)
+        │   ├── kvm.c (DONE, 内核态虚拟内存管理)
         │   ├── method.h (NEW)
         │   ├── mod.h (NEW)
         │   └── type.h (NEW)
@@ -53,7 +64,7 @@ ECNU-OSLAB-2025-TASK
         │   ├── method.h (NEW)
         │   ├── mod.h (NEW)
         │   └── type.h (NEW, 增加PLIC寄存器定义)
-        └── main.c (TODO)
+        └── main.c (DONE)
 ```
 **标记说明**
 
@@ -62,6 +73,8 @@ ECNU-OSLAB-2025-TASK
 **CHANGE**: 旧的源文件发生了更新, 直接拷贝即可, 无需修改
 
 **TODO**: 你需要实现新功能 / 你需要完善旧功能
+
+**DONE**: 本仓库已完成对应 TODO
 
 ## 第一阶段: 更加方便的启动OpenSBI
 
@@ -510,7 +523,7 @@ void test_mapping_and_unmapping()
     assert(pte != NULL, "test_mapping_and_unmapping: pte_2 not found");
     assert((*pte & PTE_V) != 0, "test_mapping_and_unmapping: pte_2 not valid");
     assert(PTE_TO_PA(*pte) == pa_2, "test_mapping_and_unmapping: pa_2 mismatch");
-    assert((*pte & PTE_R == PTE_R), "test_mapping_and_unmapping: flag_2 mismatch");
+    assert(((*pte & PTE_R) == PTE_R), "test_mapping_and_unmapping: flag_2 mismatch");
 
     // 5. 解除映射
     vm_unmappages(pgtbl, va_1, PGSIZE, true);
