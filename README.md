@@ -1,20 +1,138 @@
-# LAB-1: 机器启动
+# Lab1 实验报告：机器启动与多核同步
 
-> 学生分支：`lab-1`；教师框架：`course/lab1` @ `e1f2efd5`；当前状态：核心目标与课后并发实验已完成。
+- 学生：谷秉仁
+- 实验分支：`lab-1`
+- 课程框架：`course/lab1@e1f2efd5`
+- 完成状态：核心目标与课后并发实验已完成
 
-## 0. 本仓库准备情况
+## 1. 实验目标
 
-- Lab0 环境、QEMU 启动和 GDB 调试已经验证，记录见 [`docs/lab0.md`](docs/lab0.md)。
-- 教师发布仓库已配置为只读用途的 `course` 远端；个人提交只推送到 `origin`。
-- Lab1 的启动、格式化输出和自旋锁已经实现，完整记录见 [`docs/lab1.md`](docs/lab1.md)。
-- 已补齐框架缺少的 GDB 初始化模板，并修正 `debug` 目标的内核 ELF 依赖。
-- VisionFive 2 的移植约束和分阶段方案已提前整理，见
-  [`docs/visionfive2-porting.md`](docs/visionfive2-porting.md)。Lab1 仍以 QEMU `virt`
-  验收为准，不在本阶段改写硬件路径。
-- VMware 中已通过完整构建、双核 QEMU 启动、格式化输出边界、自旋锁并发累加、
-  无锁输出对照和 GDB 断点验证。
+1. 让 QEMU `virt` 上的两个 hart 从 M-mode 启动并进入 S-mode 的 `main`。
+2. 基于 UART 实现内核格式化输出。
+3. 实现可嵌套关中断与多核自旋锁，使一次 `printf` 完整占有串口。
+4. 通过并行累加和并行输出实验，观察竞态与锁粒度的影响。
 
-发布状态与同步方法见 [`docs/course-release-status.md`](docs/course-release-status.md)。
+## 2. 实验环境
+
+| 项目 | 配置 |
+| --- | --- |
+| 虚拟化 | VMware Workstation Pro 17 |
+| 操作系统 | Ubuntu 22.04.5 LTS |
+| 交叉编译器 | `riscv64-linux-gnu-gcc` 11.4.0 |
+| 模拟器 | QEMU 5.1.0，`virt`，`-bios none`，128 MiB，2 hart |
+| 调试器 | GDB multiarch 12.1 |
+| 内核入口 | `0x80000000` |
+
+构建、运行和调试均在 VMware 内的 `/home/oslab/lab/oslab` 执行，Windows
+只通过 VMware 共享文件夹编辑同一份代码。
+
+## 3. 实现与关键设计
+
+### 3.1 启动路径
+
+```text
+QEMU reset ROM
+  -> _entry（M-mode，为每个 hart 设置独立栈）
+  -> start（保存 hart ID 并配置 M-mode CSR）
+  -> mret（M-mode -> S-mode）
+  -> main
+```
+
+`start` 把 `mhartid` 保存到 `tp`，设置 `mstatus.MPP=S` 与 `mepc=main`，完成异常和
+中断委托，并通过 PMP 允许 S-mode 访问 QEMU 内存与 MMIO。CPU 0 初始化打印资源后，
+通过内存屏障发布状态，CPU 1 等待状态后才使用 UART。
+
+### 3.2 `printf` 与 UART
+
+`printf` 支持 `%d`、`%p`、`%x`、`%c`、`%s` 和 `%%`，并处理 `INT32_MIN`、空字符串指针、
+未知格式和末尾单独 `%`。`printf` 在一次调用开始时获取 `print_lk`，在整个格式字符串
+输出完成后释放，避免两个 hart 字符级交错。`panic` 直接使用 UART，避免持有打印锁时
+再次获锁导致死锁。
+
+### 3.3 自旋锁
+
+`push_off`/`pop_off` 按嵌套层数关闭和恢复本 hart 中断。加锁用原子交换竞争
+`locked`，成功后记录持有者；解锁前检查持有者，并用内存屏障保证临界区读写顺序。
+反汇编中可见 `amoswap.w.aq`、`fence` 和原子释放指令。
+
+## 4. 测试与实际结果
+
+生产内核复现命令：
+
+```bash
+cd /home/oslab/lab/oslab
+git switch lab-1
+make clean && make build
+riscv64-linux-gnu-readelf -h target/kernel/kernel-qemu.elf
+timeout 10s make run
+```
+
+| 检查 | 实际结果 |
+| --- | --- |
+| `-Wall -Werror` 干净构建 | 通过 |
+| ELF 入口 | `0x80000000` |
+| 双 hart QEMU | 输出 CPU 0 和 CPU 1 启动信息 |
+| GDB | 命中 `main`；一次实测 `pc=0x8000001c`、`tp=1` |
+
+格式边界临时测试输出：
+
+```text
+FORMAT d=-2147483648 p=2a x=0x0000000000001234 c=Z s=ok null=(null) percent=% unknown=%q
+TRAIL=%
+```
+
+两个 hart 各执行 1,000,000 次无锁 `sum++`，两次实测结果为：
+
+```text
+UNLOCKED sum=1108750 expected=2000000
+UNLOCKED sum=1136845 expected=2000000
+```
+
+丢失更新说明 `volatile` 不能使“读取—加一—写回”成为原子操作。随后让两个 hart
+各执行 10,000 次带锁累加，得到：
+
+```text
+LOCK sum=20000 expected=20000
+```
+
+临时移除 `printf` 外层锁后，并行输出出现字符级交错：
+
+```text
+CCPU1-BBBBBBPU0-AAAAAAAAAABBBBBBBBBBBBBBBBBBBBBBBBBAAAAABBBBB...
+```
+
+恢复锁后，每行均保持完整，但不强制不同 CPU 整行之间的顺序。上述临时实验代码
+已从最终内核移除。
+
+GDB 调试时，一个终端执行 `make debug`，另一个终端执行：
+
+```bash
+gdb-multiarch -q -nx -x .gdbinit
+(gdb) break main
+(gdb) continue
+```
+
+## 5. 理解、与 Lab0 的关系及当前边界
+
+Lab0 确认了交叉编译、QEMU 与 GDB 工具链可用；Lab1 在该环境中建立了自有内核的
+启动、输出与同步基础。细粒度锁能提供更多并发交错机会，但频繁原子操作开销更高；
+粗粒度锁开销较小，但会让两个 hart 更接近串行执行。
+
+当前内核还没有安装 S-mode trap vector，意外异常没有完整处理路径。`-bios none`
+与 M-mode 入口也只面向 QEMU；VisionFive 2 需要从 OpenSBI 的 S-mode 入口启动，
+不能直接复用该路径。
+
+## 6. 结论
+
+Lab1 已完成双 hart 启动、UART 格式化输出与自旋锁，并通过对照实验说明了竞态、
+临界区和锁粒度的作用。完整实现记录见 [`docs/lab1.md`](docs/lab1.md)，课程发布状态见
+[`docs/course-release-status.md`](docs/course-release-status.md)。
+
+---
+
+# 附录：课程实验指导存档
+
+下方为课程框架中的指导内容和示例输出，不代表本仓库的实测结果；本次实测数据以上方报告为准。
 
 ## 1. 代码组织结构
 ```
