@@ -24,8 +24,8 @@ void uart_init(void)
 	// 清零和使能FIFO模式
 	WriteReg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
 
-	// 使能输出队列和接收队列的中断
-	WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
+	// 同步输出不需要TX-empty中断，只打开接收中断。
+	WriteReg(IER, IER_RX_ENABLE);
 }
 
 // 单个字符输出
@@ -53,7 +53,7 @@ void uart_putc_sync(int c)
 // 失败返回-1
 int uart_getc_sync(void)
 {
-	if (ReadReg(LSR) & 0x01)
+	if (ReadReg(LSR) & LSR_RX_READY)
 		return ReadReg(RHR);
 	else
 		return -1;
@@ -62,11 +62,33 @@ int uart_getc_sync(void)
 // 中断处理(键盘输入->屏幕输出)
 void uart_intr(void)
 {
+	static uint32 input_column = 0;
+
 	while (1)
 	{
 		int c = uart_getc_sync();
 		if (c == -1)
-		break;
-		uart_putc_sync(c);
+			break;
+
+		if (c == '\r' || c == '\n')
+		{
+			uart_putc_sync('\n');
+			input_column = 0;
+		}
+		else if (c == '\b' || c == 0x7f)
+		{
+			if (input_column > 0)
+			{
+				uart_putc_sync('\b');
+				uart_putc_sync(' ');
+				uart_putc_sync('\b');
+				input_column--;
+			}
+		}
+		else
+		{
+			uart_putc_sync(c);
+			input_column++;
+		}
 	}
 }

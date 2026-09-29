@@ -1,6 +1,7 @@
 #include "arch/mod.h"
 #include "lib/mod.h"
 #include "mem/mod.h"
+#include "trap/mod.h"
 
 // _entry在kernel.ld中定义，后续hart从该地址启动。
 extern void _entry(void);
@@ -18,8 +19,7 @@ void main(void)
         print_init();
         pmem_init();
         kvm_init();
-        kvm_inithart();
-        printf("cpu %d is booting with OpenSBI!\n", (int)hartid);
+        trap_kernel_init();
 
         __sync_synchronize();
         init_state = 2;
@@ -43,9 +43,18 @@ void main(void)
         while (init_state != 2)
             ;
         __sync_synchronize();
-        kvm_inithart();
-        printf("cpu %d is booting with OpenSBI!\n", (int)hartid);
     }
+
+    // 以下资源是每个hart独立的。
+    kvm_inithart();
+    printf("cpu %d is booting with OpenSBI!\n", (int)hartid);
+
+    // 先关闭全局中断并安装完整trap入口，再配置本hart的时钟；
+    // 所有入口和使能位就绪后才统一打开全局中断。
+    intr_off();
+    trap_kernel_inithart();
+    timer_init();
+    intr_on();
 
     while (1)
         asm volatile("wfi");

@@ -1,6 +1,9 @@
 # 引入通用配置文件
 include common.mk
 
+# 裸 make 默认构建完整内核，避免依赖文件中的首个目标接管默认目标。
+.DEFAULT_GOAL := build
+
 # 配置CPU核心数量
 CPUNUM = 2
 # 定义目标文件输出目录
@@ -36,6 +39,9 @@ GDBPORT = $(shell expr `id -u` % 5000 + 25000)  # 动态计算GDB端口号
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
+
+# 头文件变化也必须触发对应目标重新编译。
+-include $(KernelOBJ:.o=.d) $(UserOBJ:.o=.d)
 
 # 生成GDB初始化文件
 .gdbinit: .gdbinit.tmpl-riscv

@@ -1,7 +1,7 @@
 #include "mod.h"
 
 // 中断信息
-static char *interrupt_info[16] = {
+static const char *interrupt_info[16] = {
     "U-mode software interrupt", // 0
     "S-mode software interrupt", // 1
     "reserved-1",                // 2
@@ -21,7 +21,7 @@ static char *interrupt_info[16] = {
 };
 
 // 异常信息
-static char *exception_info[16] = {
+static const char *exception_info[16] = {
     "Instruction address misaligned", // 0
     "Instruction access fault",       // 1
     "Illegal instruction",            // 2
@@ -44,6 +44,15 @@ static char *exception_info[16] = {
 // 它是完整的内核态trap处理流程
 extern void kernel_vector();
 
+#define SCAUSE_INTERRUPT (1ul << 63)
+
+static const char *trap_info(const char *const info[], uint64 cause)
+{
+    if (cause < 16)
+        return info[cause];
+    return "unknown";
+}
+
 // 初始化trap中各个核心共享的东西
 void trap_kernel_init()
 {
@@ -57,14 +66,14 @@ void trap_kernel_init()
 // 初始化trap中各个核心独有的东西
 void trap_kernel_inithart()
 {
-    // PLIC核心初始化
-    plic_inithart();
-
     // 填写内核态中断处理函数
     w_stvec((uint64)kernel_vector);
 
-    // 打开中断
-    intr_on();
+    // PLIC核心初始化，并允许S-mode接收外设中断。
+    plic_inithart();
+    w_sie(r_sie() | SIE_SEIE);
+
+    // 全局中断由main在所有本hart资源就绪后统一打开。
 }
 
 // 在kernel_vector()里面调用
@@ -78,40 +87,63 @@ void trap_kernel_handler()
 
     // 确认trap来自S-mode且此时trap处于关闭状态
     assert(sstatus & SSTATUS_SPP, "trap_kernel_handler: not from s-mode");
-    assert(intr_get() == 0, "trap_kernel_handler: interreput enabled");
+    assert(intr_get() == 0, "trap_kernel_handler: interrupt enabled");
 
-    int trap_id = scause & 0xf;
+    uint64 cause = scause & ~SCAUSE_INTERRUPT;
 
     /* 高位bit标识了是中断还是异常 */
-    if (scause & 0x8000000000000000ul)
+    if (scause & SCAUSE_INTERRUPT)
     {
         // 1-中断处理
-        switch (trap_id) // 中断产生原因分类
+        switch (cause) // 中断产生原因分类
         {
+        case 5:
+            timer_interrupt_handler();
+            break;
+
+        case 9:
+            external_interrupt_handler();
+            break;
 
         default: // 例外处理
-            printf("\nunexpected interrupt: %s\n", interrupt_info[trap_id]);
-            printf("trap_id = %d, sepc = %p, stval = %p\n", trap_id, sepc, stval);
+            printf("\nunexpected interrupt: %s\n",
+                   trap_info(interrupt_info, cause));
+            printf("scause = %x, sepc = %x, stval = %x\n",
+                   scause, sepc, stval);
             panic("trap_kernel_handler");
         }
     }
     else
     {
-        // 2-异常处理
-        switch (trap_id) // 异常产生原因分类
-        {
-
-        default: // 例外处理
-            printf("\nunexpected exception: %s\n", exception_info[trap_id]);
-            printf("trap_id = %d, sepc = %p, stval = %p\n", trap_id, sepc, stval);
-            panic("trap_kernel_handler");
-        }
+        // Lab3尚未定义可恢复的同步异常，保留完整上下文并停止内核。
+        printf("\nunexpected exception: %s\n",
+               trap_info(exception_info, cause));
+        printf("scause = %x, sepc = %x, stval = %x\n",
+               scause, sepc, stval);
+        panic("trap_kernel_handler");
     }
 }
 
 // 外设中断处理 (基于PLIC，lab-3只需要识别和处理UART中断)
 void external_interrupt_handler()
 {
+    int irq = plic_claim();
+
+    // claim返回0表示当前没有待处理的外设中断。
+    if (irq == 0)
+        return;
+
+    if (irq == UART_IRQ)
+    {
+        uart_intr();
+        plic_complete(irq);
+        return;
+    }
+
+    // 即使是不认识的中断，也先complete，避免PLIC一直保留该请求。
+    plic_complete(irq);
+    printf("unexpected external interrupt: irq = %d\n", irq);
+    panic("external_interrupt_handler");
 }
 
 // 时钟中断处理 (当前内核的时钟源由OpenSBI设置)
@@ -119,6 +151,9 @@ void timer_interrupt_handler()
 {
     // 设置下一次时钟事件
     // 如果不设置, stimecmp会一直是一个过期的值, CPU处理完这次中断后会立刻再次响应同一个中断
+
+    // 每个CPU都有独立的定时事件，因此每个CPU都必须重新设置。
+    timer_rearm();
 
     // 只由CPU-0更新共享时钟。
     if (mycpuid() == 0)
