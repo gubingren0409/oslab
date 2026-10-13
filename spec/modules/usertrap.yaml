@@ -1,0 +1,58 @@
+module: kernel/usertrap
+owns:
+- src/kernel/trap/trap_user.c
+- src/kernel/trap/trampoline.S
+state:
+  trampoline: 页对齐共享代码，内核和用户页表在 TRAMPOLINE 映射同一物理页；段长不超过一页。
+  TRAPFRAME: 当前进程用户页表中的非用户 RW 映射；布局由 proc/type.h 固定。
+  trapframe_access: 内核页表不映射 TRAPFRAME；内核以 proc.tf 的物理地址经恒等映射访问同一页，用户态期间 sscratch 始终保持 TRAPFRAME。
+  entry_address: user_vector 与 user_return 只能以 TRAMPOLINE 加段内偏移的运行时地址进入；两者切换 satp 后仍在同一虚拟地址上继续执行。
+rules:
+- 切换 satp 前后均在同一 TRAMPOLINE 虚拟地址执行并刷新 TLB；用户寄存器保存和恢复不得混用页表。
+- 未知系统调用返回 -1；用户执行错误停止故障进程，不触发内核 panic；内核状态矛盾才 panic。
+- scause 5的S-mode时钟中断调用timer_interrupt_handler，以SBI TIME重设下一次事件；scause 9的外部中断调用external_interrupt_handler。
+functions:
+  user_vector:
+    pre:
+    - 由 U-mode trap 进入；satp 仍为用户页表，sscratch 为 TRAPFRAME，stvec 已指向本入口，用户通用寄存器内容需要完整保留。
+    effects:
+    - 以 sscratch 与 a0 交换取得 trapframe 指针，把全部 32 个通用寄存器按 trapframe 布局保存，a0 经交换后写回偏移 112。
+    - 从 trapframe 读出内核 satp、内核栈顶、trap 处理入口和 hart ID；切换 satp 并刷新 TLB 后跳转到 trap 处理入口。
+    post:
+    - 用户现场完整保存在 trapframe 中且此后不再使用用户页表；进入处理入口时 sp 为当前进程内核栈顶、tp 为 hart ID、satp 为内核页表。
+    - 进入处理入口时 a0 仍为 TRAPFRAME，该地址在内核页表中无效，处理函数不得解引用它，只能经 proc.tf 访问同一页。
+    - 保存过程只使用 sscratch 和 trapframe 且不修改其前五槽，不读写其他内核对象。
+
+  void trap_user_handler(void):
+    pre:
+    - 由 user_vector 切换到内核页表后进入；当前进程已经完整发布，tf 指向其 trapframe，SSTATUS.SPP 为零且 SSTATUS.SIE 关闭。
+    effects:
+    - 立即把 stvec 重设为 kernel_vector，读取 scause、stval、sepc，并把发生 trap 的用户 PC 保存到 tf->epc。
+    - 对 8 号 U-mode ecall 先令 tf->epc=sepc+4，再按 tf->a7 分派；SYS_helloworld 输出固定消息并返回 0，未知调用号返回 -1。
+    - 对 5 号时钟中断调用 timer_interrupt_handler，对 9 号外部中断调用 external_interrupt_handler；处理完成后调用 trap_user_return。
+    - 对其他用户异常输出 scause、sepc、stval 诊断，撤下当前进程并让本 hart 留在可处理中断的内核 wfi 循环，不触发 kernel panic。
+    post:
+    - 已支持的 trap 最终返回用户态；ecall 从下一条指令继续且不重复执行，除返回值 a0 与 PC 外的用户现场保持不变。
+    - 用户态 timer/UART 中断处理后原 PC、寄存器和栈可继续使用；用户执行错误不会再次执行故障指令，也不会停止其他 hart。
+
+  void trap_user_return(void):
+    pre:
+    - 由 trap_user_handler 调用，或作为 proczero 的首次上下文入口；当前运行于内核页表，当前进程、页表、trapframe 与内核栈均有效。
+    effects:
+    - 关闭当前 hart 的全局中断，在 trapframe 前五槽写入内核 satp、内核栈顶、trap_user_handler 入口和 hart ID。
+    - 把 stvec 设置为 user_vector 的 TRAMPOLINE 运行时地址，把 tf->epc 写入 sepc；清除 sstatus.SPP 并设置 SPIE。
+    - 以 TRAPFRAME 和 MAKE_SATP(proc.pgtbl) 为参数调用 user_return 的 TRAMPOLINE 运行时入口。
+    post:
+    - 本函数不返回；user_return 恢复用户现场并以 sret 进入 U-mode，sscratch 为 TRAPFRAME，satp 为当前进程用户页表。
+    - 首次进入时 PC 为 USER_BASE、sp 为 TRAPFRAME；后续进入时从已保存的 tf->epc 与寄存器继续。
+
+  user_return:
+    pre:
+    - 由 trap_user_return 在 TRAMPOLINE 中以 (TRAPFRAME, MAKE_SATP(proc.pgtbl)) 调用；调用时内核页表有效，用户寄存器已保存在 trapframe 中。
+    effects:
+    - 切换 satp 为用户页表并刷新 TLB，此后只经 TRAPFRAME 访问 trapframe。
+    - 恢复全部通用寄存器，并以 sscratch 交换恢复 a0。
+    - 以 sret 返回 U-mode，PC 取 sepc。
+    post:
+    - 用户以 trapframe 中的寄存器、PC 与栈继续执行；satp 为用户页表，sscratch 复位为 TRAPFRAME。
+    - 本入口不返回；下一次用户 trap 由 user_vector 在同一 trapframe 上重新保存现场。
