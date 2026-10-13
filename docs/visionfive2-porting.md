@@ -2,7 +2,7 @@
 
 ## 目标与边界
 
-最终目标是在 StarFive VisionFive 2 上启动本实验内核。当前阶段只做不会影响 Lab1
+最终目标是在 StarFive VisionFive 2 上启动本实验内核。当前阶段只做不会影响 Lab4
 QEMU 验收的准备：记录硬件约束、保留启动参数、规划平台抽象并补齐构建和镜像检查工具。
 在拿到开发板及助教最终固件规范前，不刷写 SPI Flash，也不把未经硬件验证的代码并入稳定分支。
 
@@ -28,18 +28,18 @@ QEMU 验收的准备：记录硬件约束、保留启动参数、规划平台抽
 
 | 项目 | QEMU `virt` / Lab1 | VisionFive 2 |
 | --- | --- | --- |
-| 启动方式 | QEMU 直接装载 ELF，`-bios none` | SPL + OpenSBI + U-Boot 装载内核 |
-| 当前入口/DRAM 基址 | `0x80000000` | DRAM 从 `0x40000000` 开始，装载地址由固件方案决定 |
+| 启动方式 | QEMU 由 OpenSBI 启动 S-mode 内核 | SPL + OpenSBI + U-Boot 装载内核 |
+| 当前入口/DRAM 基址 | RAM `0x80000000`，内核入口 `0x80200000` | DRAM 从 `0x40000000` 开始，装载地址由固件方案决定 |
 | 应用 hart | 通常 0、1 | 通常 1～4，需要逻辑 CPU 映射 |
 | UART | 16550，字节寄存器，IRQ 10 | DW APB UART，32 位访问/4 字节间隔，IRQ 32 |
 | 定时器 | QEMU CLINT | 建议通过 SBI TIME，板上 timebase 为 4 MHz |
-| 多核启动 | QEMU 同时启动 | 建议通过 SBI HSM 启动从 hart |
+| 多核启动 | OpenSBI 通过 SBI HSM 启动从 hart | 建议通过 SBI HSM 启动从 hart |
 | 根存储 | VirtIO MMIO | SD/eMMC，驱动完全不同 |
 | 硬件描述 | 当前为编译期常量 | 应优先读取 DTB |
 
 ## 代码设计约束
 
-Lab1 期间保持现有 `make run` 和 QEMU 路径不变。开始实际移植时采用以下边界：
+Lab4 期间保持现有 `make run` 和 QEMU 路径不变。开始实际移植时采用以下边界：
 
 ```text
 arch/riscv/              RISC-V 通用寄存器与入口约定
@@ -61,7 +61,7 @@ PLIC context、timer frequency、hart-to-CPU 映射以及块设备类型。公�
 
 ## 分阶段验证
 
-1. **Lab1～Lab2：** QEMU 路径保持可回归；入口处保留启动参数，避免继续扩散平台常量。
+1. **Lab1～Lab4：** QEMU 路径保持可回归；入口处保留启动参数，避免继续扩散平台常量。
 2. **无开发板阶段：** 为 `PLATFORM=qemu_virt` / `PLATFORM=visionfive2` 设计双构建目标，
    检查 ELF、装载地址和 DTB，不声称硬件可运行。
 3. **上板最小闭环：** 从 U-Boot 临时加载内核，仅完成串口输出并停机；不改写板载固件。
@@ -85,7 +85,7 @@ VMware 中的 Ubuntu 22.04.5 已补齐并验证以下工具：
 
 ## 硬件准备建议
 
-不必为当前 Lab1 立即购买开发板。若希望提前购买，优先选择助教后续固定的 VisionFive 2，
+不必为当前 Lab4 立即购买开发板。若希望提前购买，优先选择助教后续固定的 VisionFive 2，
 并同时准备 3.3 V USB-TTL 串口、至少 32 GB microSD、读卡器和稳定的 Type-C 电源。
 首次测试优先从 U-Boot/SD/TFTP 临时加载，保留原厂恢复链路。官方准备清单见
 [VisionFive 2 Required Hardware](https://doc-en.rvspace.org/VisionFive2/Quick_Start_Guide/VisionFive2_QSG/required_hardware.html)。

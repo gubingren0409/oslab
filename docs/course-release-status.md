@@ -1,6 +1,6 @@
 # 课程发布仓库状态
 
-检查时间：2026-09-29（Asia/Shanghai）
+检查日期：2026-10-13（Asia/Shanghai）
 
 ## 连接方式
 
@@ -33,10 +33,13 @@ git log -1 --oneline course/master
 | Lab0 | 已发布 | `course/master` 的 Lab0 PPT 和环境文档 | `bd82890` |
 | Lab1 | 已正式发布 | `course/master` 的 Lab1 PPT、`course/lab1` 的代码框架 | `bd82890` / `e1f2efd` |
 | Lab2 | 已正式发布 | `course/lab2` 代码框架；`course/master` 的 `拔尖班-lab-2.pptx` | `79b9ad32` / `0c3849a` |
-| Lab3 | 独立任务分支已发布；未发现配套 PPT、标签、Release 或 `master` 公告 | `course/lab3` | `00970e65` |
-| Lab4 及以后 | 未发现 | 无对应分支、课件或公告 | — |
+| Lab3 | 已正式发布 | `course/lab3` 代码框架；`course/master` 的 Lab3 PPT | `00970e65` / `6ce45ee9` |
+| Lab4 | 已正式发布 | `course/lab4` 的 README、Spec、框架；`course/master` 的 Lab4 PPT | `11fd5f65` / `6ce45ee9` |
+| Lab5 及以后 | 未发现 | 无对应分支、课件或公告 | — |
 
-远端目前只有 `master`、`lab1`、`lab2`、`lab3` 四个分支，没有 Git 标签或 Gitee Release。
+远端目前有 `master`、`lab1`、`lab2`、`lab3`、`lab4` 五个分支，没有 Git 标签或
+Gitee Release。没有 Tag/Release 不表示 Lab4 未发布：PPT、任务分支、README、Spec 和
+验收场景已经齐全。
 
 ## Lab1 核心要求
 
@@ -58,6 +61,8 @@ Lab1 的非强制进阶目标包括 UEFI、从 DTB 动态读取 CPU/内存/设�
 - `lab-2`：保留已完成的 Lab2 成果。
 - `lab-3`：已从 `lab-2` 创建，选择性导入 `course/lab3@00970e65` 框架并完成
   S-mode trap、OpenSBI timer、PLIC 和 UART 中断任务。
+- `lab-4`：已从 `lab-3` 创建，选择性导入 `course/lab4@11fd5f65` 的用户进程框架与
+  Spec，完成首个用户进程、用户态 trap、系统调用和内存失败回滚。
 
 Lab1 框架现已完成实现，并在 VMware Ubuntu 中通过 `make clean && make build`、双核 QEMU、
 并发锁和 GDB 验证。实现与测试记录见 [`lab1.md`](lab1.md)。
@@ -65,3 +70,7 @@ Lab1 框架现已完成实现，并在 VMware Ubuntu 中通过 `make clean && ma
 Lab3 已在相同 VMware Ubuntu 环境中通过干净构建、双核 QEMU、双 hart 时钟中断、
 ticks 单调性与周期变化、UART/PLIC 交互、寄存器恢复和异常 panic 验证。实现记录见
 [`lab3.md`](lab3.md)。
+
+Lab4 已在相同 VMware Ubuntu 环境中通过干净构建、双向启动 hart、两次用户系统调用、
+用户态 timer、UART、未知系统调用、零页 fault 和页表 OOM 回滚验证。实现记录见
+[`lab4.md`](lab4.md)。

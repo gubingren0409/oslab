@@ -1,24 +1,26 @@
-# Lab3 实验报告：中断、异常、UART 与时钟
+# Lab4 实验报告：首个用户进程与用户态 Trap
 
 - 学生：谷秉仁
-- 实验分支：`lab-3`
-- 课程框架：`course/lab3@00970e65`
-- 完成状态：必做内容与补充测试均已完成
+- 实验分支：`lab-4`
+- 课程框架：`course/lab4@11fd5f65`
+- 完成状态：Spec、实现与验收项目均已完成
 
 ## 1. 发布依据与实验目标
 
-课程发布仓库已经存在独立的 `lab3` 分支，最新提交为 `00970e65`。该分支从
-Lab2 框架继续演进，给出了 trap、PLIC、UART 与 SBI TIME 的实验接口。课程
-`master` 当前没有 Lab3 PPT、标签或 Release，因此本实现以该任务分支中的 README、
-源码结构和待实现项为依据。
+课程仓库已经在 `master@6ce45ee9` 发布 Lab4 PPT，并在独立的 `lab4` 分支提供
+README、Spec、代码框架和验收场景。远端仍没有 Git Tag 或 Gitee Release，但本次
+PPT、任务分支和说明文档已经构成明确发布。
 
-本实验完成以下目标：
+Lab4 的目标是在 Lab3 的双核、中断和 Sv39 基础上建立第一个用户进程 `proczero`：
 
-1. 为 S-mode 内核建立完整的 trap 入口、上下文保存与恢复流程。
-2. 根据 `scause` 区分中断与异常，处理 S-mode 时钟中断和外设中断。
-3. 通过 OpenSBI TIME 扩展为每个 hart 设置定时事件，并维护并发安全的共享 ticks。
-4. 通过 PLIC 识别 UART IRQ，实现普通字符、换行、Backspace 和 Delete 回显。
-5. 对未知中断和异常输出 `scause`、`sepc`、`stval` 后进入 `panic`。
+1. 构造用户页表、代码页、用户栈、trapframe、内核栈和进程上下文。
+2. 通过 `swtch` 首次进入用户返回路径，再以 `sret` 进入 U-mode。
+3. 完成 `user_vector -> trap_user_handler -> trap_user_return -> user_return` 闭环。
+4. 处理 `SYS_helloworld`，使用户程序连续两次打印
+   `proczero: hello world!`，每次返回 0 且不重复执行 `ecall`。
+5. 保持用户态期间的 timer 和 UART 中断可恢复。
+6. 未知系统调用返回 -1；用户页错误停止故障进程，但不使内核 panic。
+7. 按最新 Memory Spec 实现可恢复的页分配和原子映射失败回滚。
 
 ## 2. 实验环境
 
@@ -33,242 +35,238 @@ Lab2 框架继续演进，给出了 trap、PLIC、UART 与 SBI TIME 的实验接
 | 调试器 | GDB multiarch 12.1 |
 | Make | GNU Make 4.3 |
 
-源码只保留一份，由 VMware 共享文件夹实时映射：
+源码通过 VMware 共享文件夹实时映射，Windows 侧只负责编辑，所有编译、QEMU 和 GDB
+操作均在 Ubuntu 中执行：
 
 ```text
 Windows: E:\oslab\oslab
-    <-> VMware 逻辑路径: /home/oslab/lab/oslab
-    <-> VMware 实际挂载: /mnt/hgfs/oslab-host/oslab
+    <-> Ubuntu: /home/oslab/lab/oslab
+    <-> 挂载点: /mnt/hgfs/oslab-host/oslab
 ```
 
-编辑可以在 Windows 侧完成，但交叉编译、QEMU 运行和 GDB 调试均在上述 VMware
-Ubuntu 环境中执行。
+## 3. 框架整合与兼容策略
 
-## 3. 框架整合与前序实验兼容
+课程 `lab4` 分支是累积的未完成框架，其中仍包含会破坏既有结果的旧实现，例如固定假设
+hart0 首先启动、空的 Lab2 内存函数、未重新安排的 timer、错误的 UART IER 位和不完整的
+kernel trap 分派。因此本分支从已验收的 `lab-3` 创建，只导入 Lab4 新增的进程、用户态、
+trampoline、用户链接脚本和 Spec，再手工合并必要接口。
 
-`lab-3` 从已完成的 `lab-2` 创建，仅选择性导入 Lab3 新增的 trap、PLIC、timer 和
-SBI TIME 框架。没有整树覆盖课程分支，因此保留了已经验证的以下成果：
+保留并回归验证了以下前序成果：
 
-- Lab1 的双核启动、UART、`printf` 和自旋锁；
-- Lab2 的物理页分配、Sv39 内核页表和 OpenSBI S-mode 启动路径；
-- 启动 hart 的原子选举。OpenSBI 最初交给内核的 hart 可能是 0，也可能是 1，不能固定
-  假设 hart 0 先启动；
-- QEMU `-bios default` 配置。S-mode 内核不直接访问或映射 CLINT。
+- OpenSBI 可以首先交付 hart0 或 hart1，首个进入者通过 CAS 取得共享初始化权；
+- S-mode 只通过 SBI HSM/TIME 启动 hart 和设置 timer，不直接访问 CLINT；
+- 两个 hart 都安装自己的页表、PLIC、trap 和 timer 环境；
+- UART IER bit 0 为 RX，bit 1 为 TX，当前只打开 RX；
+- timer 中断每次通过 SBI 重新安排，仅 hart0 更新共享 ticks；
+- PLIC 使用 `volatile` MMIO，未知外设 IRQ 会 complete 并诊断，但不会 panic。
 
-同时修正了 16550 UART IER 位定义：bit 0 是接收数据可用中断，bit 1 是发送保持寄存器
-空中断。当前同步发送逻辑只打开 RX 中断，避免空闲 UART 持续触发 TX-empty 中断。
+Spec 先作为独立提交完成，再进行代码实现。Spec 中也把“OpenSBI 必定先启动 hart0”修正为
+与实际 QEMU/OpenSBI 行为一致的动态启动 hart 模型；无论谁负责共享初始化，只有 hart0
+创建并运行 `proczero`。
 
-## 4. 实现说明
+## 4. 地址空间与进程构造
 
-### 4.1 初始化顺序
+### 4.1 固定虚拟地址
 
-整体启动与中断初始化流程如下：
+| 区域 | 虚拟地址 | 用户页表权限 | 内核页表权限 |
+| --- | ---: | --- | --- |
+| 零页 | `0x00000000` | 未映射 | 按内核低地址策略未映射 |
+| 用户代码 | `0x00001000` | RXU | 不作为用户映射使用 |
+| 用户堆顶 | `0x00002000` | 尚未分配 | — |
+| `KSTACK(0)` / 用户栈页 | `0x3fffffd000` | RWU，映射用户栈物理页 | RW，映射独立内核栈物理页 |
+| `TRAPFRAME` | `0x3fffffe000` | RW、无 U | 未映射，形成内核栈保护页 |
+| `TRAMPOLINE` | `0x3ffffff000` | RX、无 U | RX |
+
+用户页表和内核页表在 `TRAMPOLINE` 映射同一物理页，使汇编可以在切换 `satp` 前后继续
+取指。`TRAPFRAME` 对用户不可访问；内核切回自己的页表后通过 `proc.tf` 保存的恒等映射
+物理地址访问同一页。
+
+### 4.2 `proczero` 初始化
+
+`proc_make_first()` 先在局部对象中完成全部资源构造，再一次性发布 PCB：
 
 ```text
-OpenSBI
-  -> _entry
-  -> start（将 a0 中的 hart ID 写入 tp）
-  -> main
-      -> 首个 hart 通过原子 CAS 成为启动 hart
-          -> print_init
-          -> pmem_init
-          -> kvm_init
-          -> trap_kernel_init（PLIC 全局配置、共享 timer 创建）
-          -> 发布全局初始化完成状态
-          -> SBI HSM 启动另一个 hart
-      -> 每个 hart
-          -> kvm_inithart
-          -> intr_off
-          -> trap_kernel_inithart
-          -> timer_init
-          -> intr_on
-          -> wfi
+分配 trapframe 用户物理页
+  -> 建立只含 TRAMPOLINE/TRAPFRAME 的用户页表
+  -> 分配用户栈页和代码页
+  -> 映射 stack RWU、code RXU
+  -> 复制 initcode 并执行 fence.i
+  -> epc=USER_BASE、sp=TRAPFRAME
+  -> ctx.ra=trap_user_return、ctx.sp=KSTACK(0)+PGSIZE
+  -> 发布 cpu.proc
+  -> swtch
 ```
 
-每个 hart 先显式关闭全局中断，再安装 `stvec` 并配置 PLIC S-mode context 和
-`sie.SEIE`。随后 `timer_init()` 安排一个未来的定时事件并设置 `sie.STIE`，所有入口、
-中断控制器和使能位就绪后才打开 `sstatus.SIE`。这样不存在 timer 在正确 trap 入口安装前
-到达的窗口。
+任何分配或映射失败都会先释放本次页表页和用户物理页，再在发布进程前报告必要启动失败，
+不会留下半初始化 PCB。
 
-### 4.2 trap 入口与分发
+## 5. 用户态 Trap 闭环
 
-`kernel_vector` 为除 `x0` 外的 31 个通用寄存器保留 256 字节栈空间，调用 C 语言
-处理函数后逐一恢复寄存器，并通过 `sret` 返回。`tp` 保存 hart ID，也包含在恢复范围内。
+### 5.1 首次进入与返回
 
-`trap_kernel_handler()` 使用 `scause` 最高位判断中断或同步异常，并使用其余完整位作为
-cause 编号，避免只保留低 4 位造成错误分类。当前支持：
+`trap_user_return()` 先关闭全局中断，填入 trapframe 前五个内核字段：内核 `satp`、内核
+栈顶、C trap 入口、用户 PC 和 hart ID。随后：
 
-| cause | 类型 | 处理 |
-| --- | --- | --- |
-| 5 | S-mode timer interrupt | 重新安排定时事件，hart 0 更新共享 ticks |
-| 9 | S-mode external interrupt | 进入 PLIC claim/complete 流程 |
-| 其他中断 | 未支持 | 输出寄存器上下文并 `panic` |
-| 同步异常 | Lab3 不恢复 | 输出异常名称及寄存器上下文并 `panic` |
+1. 把 `stvec` 指向 `TRAMPOLINE + (user_vector - trampoline)`；
+2. 把保存的用户 PC 写入 `sepc`；
+3. 清除 `sstatus.SPP`，设置 `SPIE`；
+4. 通过 trampoline 高地址调用 `user_return(TRAPFRAME, MAKE_SATP(pgtbl))`；
+5. 汇编切换到用户页表、恢复全部通用寄存器并执行 `sret`。
 
-异常和中断名称表都带边界检查，未知的大编号不会越界访问字符串数组。
+trapframe ABI 用编译期断言固定为 288 字节，其中 `a0` 偏移 112、`t6` 偏移 280，保证 C
+结构体和汇编保存顺序一致。
 
-### 4.3 OpenSBI 时钟与共享 ticks
+### 5.2 用户态进入内核
 
-内核通过 SBI TIME 扩展调用：
+用户 trap 到达 `user_vector` 后，汇编通过 `sscratch` 取得 `TRAPFRAME`，保存全部用户
+寄存器，读取预置的内核上下文，切换内核页表和内核栈，再进入
+`trap_user_handler()`。C 处理函数首先把 `stvec` 恢复为 `kernel_vector`，之后按完整
+`scause` 分派：
 
-```c
-sbi_set_timer(r_time() + INTERVAL);
-```
+| 原因 | 处理 |
+| --- | --- |
+| U-mode `ecall`，cause 8 | 保存的 `epc += 4`，按 `a7` 分派系统调用 |
+| `SYS_helloworld=0` | 打印固定消息，`a0=0` |
+| 未知系统调用 | `a0=-1` |
+| S-mode timer interrupt，cause 5 | 复用 Lab3 timer handler，重新安排下一事件 |
+| S-mode external interrupt，cause 9 | 复用 PLIC/UART handler |
+| 其他用户异常 | 输出上下文，撤下当前进程，进入可处理中断的内核 `wfi` 循环 |
 
-首次事件和每次中断后的下一次事件都检查 SBI 返回值，失败时输出 hart ID 与错误码并
-`panic`。定时事件属于各 hart，因此两个 hart 都必须在各自的时钟中断中重新设置下一次
-事件；共享 ticks 则只由 hart 0 更新，避免双核下计数速度翻倍。
+用户异常路径不返回故障指令，也不调用 kernel panic；另一个 hart 和内核 UART 中断仍可继续。
 
-`timer_create()` 初始化 ticks 和自旋锁，`timer_update()` 在锁内递增，
-`timer_get_ticks()` 在锁内取得快照。这样后续调度器或系统调用读取 ticks 时不会与更新并发。
+## 6. 内存失败恢复
 
-### 4.4 PLIC 与 UART
+Lab4 的最新 Spec 要求运行时 OOM 可恢复，而课程源码仍保留旧的 `void vm_mappages` 接口。
+本实现按 Spec 完成升级：
 
-PLIC MMIO 访问使用 `volatile` 指针。全局初始化把 UART IRQ 10 的优先级设为 1；每个
-hart 分别打开对应 S-mode context 的 IRQ 10，并把 threshold 设为 0。外设中断处理遵循：
+- `pmem_alloc()` 在空闲链表耗尽时返回 `NULL`，不 panic；
+- 空闲页以字节 1 填充，分配页完整清零；
+- `vm_getpte()` 分配中间层失败时回收本次遍历创建的页表页；
+- `vm_mappages()` 返回 0/-1，校验地址、溢出和权限，禁止覆盖已有映射；
+- 对 `V=0` 且非零的软件保留 PTE 拒绝覆盖，并在失败后逐位保留原值；
+- `vm_mappages()` 使用 PTE 的软件保留位标记事务中新建的中间页，成功时清除标记，失败时
+  回滚本次叶项并只释放本次创建的中间页；
+- `vm_unmappages()` 根据物理页所属区域选择正确的内核/用户空闲链表；
+- `vm_freewalk()` 只回收页表页，不擅自释放叶项所指物理页；
+- `kvm_init()` 在完整建立 UART、PLIC、内核、trampoline 和内核栈映射后才发布页表。
+
+## 7. 构建系统
+
+用户程序使用独立的 `user.ld` 从 `0x1000` 链接，`main` 显式放入入口 section。构建链为：
 
 ```text
-PLIC claim
-  -> irq == 0：返回
-  -> irq == 10：uart_intr -> PLIC complete
-  -> 其他 irq：先 complete，再输出错误并 panic
+initcode.c
+  -> initcode.o
+  -> initcode.elf
+  -> objcopy: initcode.bin
+  -> xxd -i: src/user/initcode.h
+  -> proc.o
+  -> kernel-qemu.elf
 ```
 
-UART 中断函数会排空接收 FIFO，并按以下规则回显：
+用户代码增加 `-msmall-data-limit=0`，避免在尚未初始化用户 `gp` 的阶段生成 small-data 相对
+访问。Makefile 保留 `.DEFAULT_GOAL := build`、固定助教工具链、依赖文件和可靠的
+`make clean -> make debug` 路径；生成的 `initcode.h` 已加入 `.gitignore`。
 
-- 普通字符直接回显并增加当前列计数；
-- `CR` 和 `LF` 统一输出换行并清零列计数；
-- Backspace 与 Delete 在行内输出 `\b \b`，擦除一个字符；
-- 行首的 Backspace/Delete 被忽略，不会退到上一行。
+## 8. 验证结果
 
-## 5. 测试与结果
+### 8.1 干净构建与 ELF 布局
 
-### 5.1 构建与双核启动
-
-在 VMware 中执行：
-
-```bash
-cd /home/oslab/lab/oslab
-make clean && make build
-timeout --signal=INT 6s make run
-```
-
-完整构建在 `-Wall -Werror` 下通过。多次启动分别观察到 OpenSBI 将 hart 0 或 hart 1
-作为 Current Hart，两个方向都能完成启动 hart 选举并得到：
+在 VMware Ubuntu 中执行 `make clean && make build`，完整构建在 `-Wall -Werror` 下通过。
+二进制检查结果：
 
 ```text
-cpu 0 is booting with OpenSBI!
-cpu 1 is booting with OpenSBI!
+initcode.bin                         44 bytes
+user ELF entry / main               0x1000
+kernel _entry                       0x80200000
+_trampoline / user_vector           0x80203000
+user_return                         0x80203090
+KERNEL_DATA                         0x80204000
 ```
 
-持续运行期间没有出现 panic、重复响应同一次 timer 或 UART TX 中断风暴。
+用户镜像远小于一页，trampoline 页对齐且整个链接段占用一页。
 
-### 5.2 两个 hart 的时钟中断
+### 8.2 默认双核与系统调用
 
-GDB 在 `timer_interrupt_handler` 连续命中四次的结果为：
+多次运行中分别观察到 OpenSBI 报告 `Current Hart: 0` 和 `Current Hart: 1`。两种情况下
+hart0、hart1 都各输出一次启动信息，用户输出始终恰好为：
 
 ```text
-TIMER_HIT_1 tp=0 scause=0x8000000000000005 sie=0x220 stvec=0x80200020
-TIMER_HIT_2 tp=1 scause=0x8000000000000005 sie=0x220 stvec=0x80200020
-TIMER_HIT_3 tp=0 scause=0x8000000000000005 sie=0x220 stvec=0x80200020
-TIMER_HIT_4 tp=1 scause=0x8000000000000005 sie=0x220 stvec=0x80200020
+proczero: hello world!
+proczero: hello world!
 ```
 
-这说明两个 hart 都会周期性收到 cause 5 的 S-mode timer interrupt，`sie=0x220`
-同时包含 STIE(bit 5) 和 SEIE(bit 9)，并且两个 hart 使用同一 `kernel_vector`。
+持续运行没有第三次输出或 panic，证明两个调用返回 0、`sepc` 正确前进 4 字节且用户程序
+继续执行循环。
 
-在 `timer_update()` 入口连续观察到 ticks 为 `1239、1240、1241、1242、1243`，每次
-`tp` 都为 0，证明共享计数单调递增且没有被 hart 1 重复累加。临时加入前十次滴答输出后，
-实际结果为：
+### 8.3 用户循环中的 timer trap
+
+GDB 对 `trap_user_handler` 设置 `scause` 条件断点，实际命中：
 
 ```text
-ticks = 1
-ticks = 2
-ticks = 3
-ticks = 4
-ticks = 5
-ticks = 6
-ticks = 7
-ticks = 8
-ticks = 9
-ticks = 10
+scause = 0x8000000000000005
+sstatus = 0x8000000000006020   # SPP=0
+sepc = 0x1018
+sp = 0x3fffffe000
+tp = 0
 ```
 
-该输出代码只用于验收，随后已从最终源码移除。
+这证明中断来自 U-mode，用户 PC 和内核栈切换正确；处理后可以继续返回用户循环。
 
-### 5.3 INTERVAL 快慢测试
+### 8.4 UART/PLIC
 
-默认 `INTERVAL=1000000` 时，相邻 hart 0 更新点的 `time` CSR 差值为：
+在用户循环期间连续输入 `abc<DEL>d<Enter>` 和 `xy<Enter>`：普通字符正常回显，Delete
+产生 `\b \b`，回车产生 `\r\n`，第二组输入仍能继续处理。timer 与 UART 均通过用户
+trap 往返，没有破坏用户 PC、寄存器或栈。
+
+### 8.5 未知系统调用
+
+临时用户入口先发起 syscall 123，只有结果等于 -1 时才调用一次 `helloworld`。实际只出现
+一次固定消息并继续用户循环，验证未知号返回值。测试后已恢复默认的两次调用。
+
+### 8.6 零页错误
+
+临时用户入口在第一次系统调用后执行对地址 0 的读访问，实际结果：
 
 ```text
-1026895, 1026851, 1012232, 1026276
+proczero: hello world!
+
+user exception: load page fault
+pid = 0, scause = 0x000000000000000d,
+sepc = 0x0000000000001010, stval = 0x0000000000000000
 ```
 
-临时改为 `INTERVAL=4000000` 后，差值变为：
+第二次系统调用没有执行，输出中没有 panic；故障后继续输入 `z<Enter>` 仍能由内核 UART
+路径回显。测试后已恢复默认用户入口。
 
-```text
-4031607, 4010345
-```
+### 8.7 OOM 与映射事务
 
-中断周期随 `INTERVAL` 约增大四倍。测试后已恢复 `INTERVAL=1000000` 并重新构建。
+临时启动自检实际耗尽内核页池，覆盖：非法 W-only 权限、重复映射、`vm_getpte` 第二级
+分配失败，以及跨 2 MiB 边界时先建立一个叶项再 OOM 的部分映射。所有失败均保持原页表
+不变；重新分配得到的页数与失败前一致，最终输出 `MEM_API_TEST_OK`。临时自检已撤下。
 
-### 5.4 UART/PLIC 交互测试
+另一次事务自检在跨 2 MiB 的第二级路径放置 `V=0` 的软件保留 PTE，确认第一页面已发生的
+映射被回滚、保留项逐位不变、临时中间页重新回到空闲链表，输出
+`PTE_RESERVED_TEST_OK`。该测试钩子同样已从最终源码移除。
 
-在 QEMU 终端逐次输入：
-
-| 输入序列 | 实际显示 | 结论 |
-| --- | --- | --- |
-| `abc<DEL>d<Enter>` | `abd` 后换行 | Delete 擦除与 CR 换行正确 |
-| `<DEL>xy<Enter>` | `xy` 后换行 | 行首 Delete 被安全忽略 |
-| `q<LF>` | `q` 后换行 | LF 换行正确 |
-
-三组输入均在同一次内核运行中完成，说明 PLIC complete 后可以继续接收下一次 UART 中断。
-
-### 5.5 上下文恢复测试
-
-在 hart 1 进入 `wfi` 前，使用 GDB 将两个寄存器设置为标记值，等待一次真实时钟中断并
-在 `sret` 返回点检查：
-
-```text
-REG_MARKERS_SET tp=1
-REGISTERS_AFTER_TRAP tp=1 s7=0x1122334455667788 t6=0x8877665544332211
-```
-
-被调用者保存寄存器 `s7`、临时寄存器 `t6` 和保存 hart ID 的 `tp` 均保持不变。
-
-### 5.6 异常与 panic 测试
-
-在 trap 初始化完成后，通过 GDB 把 hart 1 的下一条执行地址临时设为 0，实际触发
-Instruction page fault。内核输出：
-
-```text
-unexpected exception: Instruction page fault
-scause = 0x000000000000000c, sepc = 0x0000000000000000, stval = 0x0000000000000000
-panic! trap_kernel_handler
-```
-
-这验证了同步异常分类、64 位寄存器输出和失败停止路径。
-
-## 6. 完成情况
+## 9. 完成情况
 
 | 要求 | 状态 |
 | --- | --- |
-| trap 全局与每 hart 初始化 | 完成 |
-| `kernel_vector` 上下文保存、恢复与 `sret` | 完成并验证 |
-| S-mode timer cause 5 分发 | 完成并验证双 hart 周期触发 |
-| SBI TIME 首次设置与每次重新设置 | 完成 |
-| 共享 ticks 创建、更新与读取 | 完成并验证单调性 |
-| 仅 hart 0 更新共享 ticks | 完成并验证 |
-| PLIC S-mode claim/complete | 完成 |
-| UART IRQ 10 识别与回显 | 完成并验证 |
-| 换行、Backspace、Delete | 完成并验证 |
-| 未知 trap 的上下文输出与 panic | 完成并验证 |
-| Lab1/Lab2 双核启动与页表兼容 | 完成回归验证 |
+| 四个函数的 Spec 契约 | 完成并独立提交 |
+| 用户代码独立链接与内嵌 | 完成 |
+| `proczero` 页表、栈、trapframe、context | 完成 |
+| trampoline 双页表映射与 ABI | 完成 |
+| U-mode 首次进入与完整 trap 往返 | 完成 |
+| 两次 `SYS_helloworld`、返回 0、不重放 | 完成并验证 |
+| 用户态 timer 与 UART 中断恢复 | 完成并验证 |
+| 未知 syscall 返回 -1 | 完成并验证 |
+| 零页 fault 停止用户进程且内核不 panic | 完成并验证 |
+| OOM/重复映射/部分映射失败回滚 | 完成并验证 |
+| 动态启动 hart 与 Lab1–3 兼容 | 完成并验证 |
 | 根目录 README 实验报告 | 完成 |
 
-## 7. 复现命令
-
-普通构建与运行：
+## 10. 复现命令
 
 ```bash
 cd /home/oslab/lab/oslab
@@ -282,29 +280,24 @@ GDB 调试：
 
 ```bash
 # 终端一
-cd /home/oslab/lab/oslab
 make debug
 
 # 终端二
-cd /home/oslab/lab/oslab
-gdb-multiarch -q -nx -x .gdbinit
-(gdb) break timer_interrupt_handler
+gdb-multiarch -q -nx target/kernel/kernel-qemu.elf
+(gdb) target remote :26000
+(gdb) break trap_user_handler
 (gdb) continue
-(gdb) p/x $scause
-(gdb) p/x $sie
-(gdb) p/x $stvec
 ```
 
-## 8. VisionFive 2 适配边界
+## 11. VisionFive 2 适配边界
 
-当前实现避免直接访问 CLINT，统一通过 OpenSBI TIME 和 HSM 扩展完成定时与 hart 启动；
-trap 分发、SBI timer 和共享 ticks 逻辑可继续用于 VisionFive 2。硬件相关部分仍按 QEMU
-`virt` 固定地址配置，真正上板前还需要：
+当前用户页表、trampoline、S-mode trap、SBI TIME/HSM 和不固定首个启动 hart 的结构可继续
+复用于 VisionFive 2。真正上板仍需按助教最终固件和 DTB 完成：
 
-- 从 DTB 获取实际 hart、内存、UART、PLIC 地址与中断号；
-- 建立固件 hart ID 到内核逻辑 CPU 编号的映射；
-- 按开发板串口时钟和寄存器参数初始化 UART；
-- 按板卡 PLIC context 布局配置每个 hart；
-- 补充镜像装载、启动介质和真实硬件中断测试。
+- 将固件 hart ID 映射为紧凑的内核 CPU 索引；
+- 从 DTB 获取 DRAM、保留区、UART、PLIC 和 timebase，而不是使用 QEMU 常量；
+- 适配 JH7110 的 DesignWare APB UART 寄存器宽度和间隔；
+- 确定 U-Boot/OpenSBI 装载地址、镜像格式和页表物理范围；
+- 在实体板上重新验证 trampoline、timer、PLIC、串口和用户态往返。
 
-因此本实验已经保留可移植的 OpenSBI/S-mode 边界，但不把 QEMU 验证等同于开发板适配完成。
+因此当前结果保留了可移植的 S-mode/SBI 边界，但不把 QEMU 验收等同于开发板适配完成。
