@@ -141,9 +141,9 @@ void external_interrupt_handler()
     }
 
     // 即使是不认识的中断，也先complete，避免PLIC一直保留该请求。
+    // 外部设备输入不是内核不变量错误，诊断后继续运行。
     plic_complete(irq);
     printf("unexpected external interrupt: irq = %d\n", irq);
-    panic("external_interrupt_handler");
 }
 
 // 时钟中断处理 (当前内核的时钟源由OpenSBI设置)

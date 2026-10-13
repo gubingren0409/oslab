@@ -1,6 +1,7 @@
 #include "arch/mod.h"
 #include "lib/mod.h"
 #include "mem/mod.h"
+#include "proc/mod.h"
 #include "trap/mod.h"
 
 // _entry在kernel.ld中定义，后续hart从该地址启动。
@@ -53,8 +54,13 @@ void main(void)
     // 所有入口和使能位就绪后才统一打开全局中断。
     intr_off();
     trap_kernel_inithart();
+    uart_enable_rx_interrupt();
     timer_init();
     intr_on();
+
+    // proczero 固定由 hart0 运行；共享初始化 hart 则可能是任意 hart。
+    if (hartid == 0)
+        proc_make_first();
 
     while (1)
         asm volatile("wfi");

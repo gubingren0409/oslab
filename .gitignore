@@ -1,5 +1,6 @@
 # Build outputs
 target/
+src/user/initcode.h
 build/
 out/
 *.o

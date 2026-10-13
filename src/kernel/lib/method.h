@@ -4,12 +4,13 @@
 
 void print_init(void);
 void printf(const char *fmt, ...);
-void panic(const char *s);
+void panic(const char *s) __attribute__((noreturn));
 void assert(bool condition, const char *warning);
 
 /* uart.c: UART驱动函数 */
 
 void uart_init(void);
+void uart_enable_rx_interrupt(void);
 void uart_putc_sync(int c);
 int uart_getc_sync(void);
 void uart_intr(void);
@@ -18,6 +19,7 @@ void uart_intr(void);
 
 int mycpuid(void);
 cpu_t *mycpu(void);
+proc_t *myproc(void);
 
 /* utils.c: 一些常用的工具函数 */
 

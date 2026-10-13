@@ -49,6 +49,35 @@ static void printptr(uint64 x)
         uart_putc_sync(digits[x >> (sizeof(uint64) * 8 - 4)]);
 }
 
+static void printfloat(double f, int precision)
+{
+    if (f < 0)
+    {
+        uart_putc_sync('-');
+        f = -f;
+    }
+
+    uint64 whole = (uint64)f;
+    char buf[32];
+    int i = 0;
+    do
+    {
+        buf[i++] = digits[whole % 10];
+    } while ((whole /= 10) != 0);
+    while (--i >= 0)
+        uart_putc_sync(buf[i]);
+
+    uart_putc_sync('.');
+    double fraction = f - (uint64)f;
+    for (int n = 0; n < precision; n++)
+    {
+        fraction *= 10;
+        int digit = (int)fraction;
+        uart_putc_sync('0' + digit);
+        fraction -= digit;
+    }
+}
+
 /*
     标准化输出, 需要支持:
     1. %d (32位有符号数,以10进制输出)
@@ -78,10 +107,7 @@ void printf(const char *fmt, ...)
 
         i++;
         if (fmt[i] == '\0')
-        {
-            uart_putc_sync('%');
             break;
-        }
 
         switch (fmt[i])
         {
@@ -106,6 +132,9 @@ void printf(const char *fmt, ...)
                 uart_putc_sync(*s++);
             break;
         }
+        case 'f':
+            printfloat(va_arg(ap, double), 6);
+            break;
         case '%':
             uart_putc_sync('%');
             break;
@@ -128,7 +157,9 @@ volatile int panicked = 0;
 /* 报错并终止输出 */
 void panic(const char *s)
 {
-    const char *prefix = "panic! ";
+    const char *prefix = "panic: ";
+
+    intr_off();
 
     /* panic may be called while this CPU already owns print_lk. */
     while (*prefix != '\0')

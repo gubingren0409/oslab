@@ -14,6 +14,8 @@
 
 // 物理页是最基本的资源单位, 大小设置为4KB
 #define PGSIZE 4096
+#define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))
+#define PGROUNDDOWN(a) ((a) & ~(PGSIZE - 1))
 
 // 物理页节点
 typedef struct page_node
@@ -124,3 +126,9 @@ typedef pte_t *pgtbl_t;
 
 // 定义一个非常大的VA, 正常来说所有VA不得大于它
 #define VA_MAX (1ul << 38)
+
+// Lab4 用户空间的固定布局。零页始终保持未映射。
+#define USER_BASE PGSIZE
+#define TRAMPOLINE (VA_MAX - PGSIZE)
+#define TRAPFRAME (TRAMPOLINE - PGSIZE)
+#define KSTACK(i) (TRAMPOLINE - ((uint64)(i) + 1) * 2 * PGSIZE)

@@ -17,6 +17,8 @@ uint64 timer_get_ticks(void);
 void trap_kernel_init(void);
 void trap_kernel_inithart(void);
 void trap_kernel_handler(void);
+void trap_user_handler(void);
+void trap_user_return(void);
 
 void external_interrupt_handler(void);
 void timer_interrupt_handler(void);
