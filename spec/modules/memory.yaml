@@ -17,7 +17,7 @@ rules:
 - 页表中间项只有 PTE_V，叶项至少有 R 或 X；W 必须同时有 R；PA 与页表页均页对齐。
 - 页表修改由调用者串行化；本模块不自动执行其他 hart 的 TLB shootdown；撤销活动映射后使用或归还物理页之前须完成所需失效。
 - 运行时分配或映射失败返回定义的失败值；回收本次创建的中间页和临时资源，不改变已发布的映射或泄漏页。
-- TRAMPOLINE 为 VA_MAX-PAGE_SIZE，TRAPFRAME 为 TRAMPOLINE-PAGE_SIZE；KSTACK(i) 为 TRAMPOLINE-(i+1)*2*PAGE_SIZE，每个内核栈之上的保护页保持未映射。
+- TRAMPOLINE 为 VA_MAX-PGSIZE，TRAPFRAME 为 TRAMPOLINE-PGSIZE；KSTACK(i) 为 TRAMPOLINE-(i+1)*2*PGSIZE，每个内核栈之上的保护页保持未映射。
 functions:
   bool check_inkernel(uint64 p);:
     pre:

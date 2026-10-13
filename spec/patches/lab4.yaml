@@ -5,7 +5,7 @@ changes:
   kernel/process:
   - 首进程页表与上下文
   - 当前CPU进程指针
-  - swtch与proc_return
+  - swtch与trap_user_return
   kernel/usertrap:
   - user_vector、trap_user_handler、trap_user_return、user_return
   kernel/memory:
