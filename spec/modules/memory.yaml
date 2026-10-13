@@ -56,8 +56,9 @@ functions:
     - 按 VPN2、VPN1、VPN0 遍历；alloc 为 true 时为缺失的中间层分配清零的内核页并建立非叶项。
     post:
     - 成功返回 va 对应最低层 PTE 地址，叶项尚未映射也可成功。
-    - NULL 根、va >= VA_MAX、alloc 为 false 且路径缺失，或资源不足返回 NULL。
+    - NULL 根、va >= VA_MAX、alloc 为 false 且路径缺失、资源不足，或路径包含 V=0 且非零的软件保留中间项时返回 NULL。
     - 资源不足时解除并回收本次新建中间页，原有页表项不变；遇上层叶项属于本模块仅支持 4 KiB 页的不变量破坏并 panic。
+    - 软件保留中间项逐位保持不变，不把它当作可分配空槽。
   int vm_mappages(pgtbl_t pgtbl, uint64 va, uint64 pa, uint64 len, int perm);:
     pre:
     - 非 NULL 页表有效且由调用者独占修改；成功映射后调用者管理物理页的所有权与寿命。
@@ -65,9 +66,9 @@ functions:
     - 把 len 向上取整到页面，为连续虚拟页建立连续物理叶项；叶项为 PA_TO_PTE(pa+offset) | perm | PTE_V。
     post:
     - 成功返回 0，覆盖 [va, va+PGROUNDUP(len))；不会替换已有有效映射。
-    - NULL 根、未对齐 va 或 pa、零长度、地址范围或向上取整溢出、物理地址不可编码、非法权限、已有映射或分配不足返回 -1。
+    - NULL 根、未对齐 va 或 pa、零长度、地址范围或向上取整溢出、物理地址不可编码、非法权限、已有映射、软件保留项或分配不足返回 -1。
     - perm 仅允许 R、W、X、U；至少含 R 或 X，W 必须含 R。
-    - 失败时回滚本次叶项并回收本次中间页；保留调用前页表与物理页，调用者可回收未发布的目标页。
+    - 失败时回滚本次叶项并回收本次中间页；逐位保留调用前的页表（包括软件保留项）与物理页，调用者可回收未发布的目标页。
   void vm_unmappages(pgtbl_t pgtbl, uint64 va, uint64 len, bool freeit);:
     pre:
     - pgtbl 有效且由调用者独占修改；va 页对齐，len 非零，取整范围完整落在 [0, VA_MAX) 且每页已有有效最低层叶项。

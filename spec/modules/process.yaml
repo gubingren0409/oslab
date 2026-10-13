@@ -48,7 +48,7 @@ functions:
     - 当前 hart 尚未发布进程；initcode 是不超过一页、从 USER_BASE 开始执行的平坦用户映像。
     effects:
     - 构造唯一的用户进程 proczero：设置 pid，分配并清零 trapframe 页、用户页表、用户栈页和用户代码页。
-    - 用 proc_pgtbl_init 取得用户页表，在 TRAPFRAME-PGSIZE 建立用户栈页的 RWU 映射，在 USER_BASE 建立代码页的 RXU 映射，并把 initcode 复制到代码页。
+    - 用 proc_pgtbl_init 取得用户页表，在 TRAPFRAME-PGSIZE 建立用户栈页的 RWU 映射，在 USER_BASE 建立代码页的 RXU 映射，把 initcode 复制到代码页并执行 fence.i 同步取指视图。
     - 设置 ustack_npage=1、heap_top=USER_BASE+PGSIZE、kstack=KSTACK(0)、tf 为 trapframe 页的内核可见地址。
     - 设置 tf->epc=USER_BASE、tf->sp=TRAPFRAME、ctx.ra=trap_user_return、ctx.sp=KSTACK(0)+PGSIZE；全部完成后才发布 cpu.proc。
     - 以 swtch 保存当前 hart 的内核上下文并切入 proczero 上下文。
