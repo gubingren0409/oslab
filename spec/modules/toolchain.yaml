@@ -1,34 +1,22 @@
 module: toolchain
-owns:
-- Makefile
-- common.mk
-- kernel.ld
-- user.ld
+owns: [Makefile, common.mk, kernel.ld, user.ld]
 state:
-  target: target目录保存内核与用户目标文件及依赖；CPUNUM在Makefile中配置，INTERVAL在trap/type.h中配置。
+  default_platform: qemu
+  artifacts: 默认target/qemu；vf2为target/vf2；单核为target/qemu/hart1；TEST和SELFTEST有独立子目录。
 rules:
-- 使用 freestanding RV64GC/lp64d C 与汇编，不链接宿主标准库；CPUNUM与NCPU保持一致，当前均为2。
-- OpenSBI占用0x80000000起的前2MiB，内核入口_entry链接到0x80200000；trampoline单独页对齐且不超过4096字节。
-- QEMU提供130MiB物理内存，内核只管理[0x80200000, 0x88200000)的128MiB，不覆盖OpenSBI。
-- 用户 main 使用显式入口段及链接脚本从 USER_BASE=0x1000 开始；无编译优化或重排参数依赖。
+  - 构建、QEMU和GDB只在课程VMware Ubuntu中执行，使用riscv64-linux-gnu-GCC/binutils及-Wall -Werror。
+  - 平台只接受qemu或vf2，QEMU只接受1或2核，默认2；VF2使用硬件物理hart1至4。
+  - 用户main从0x1000开始且镜像不超过4096字节；用户代码禁用small-data；内嵌头文件由当前平台镜像生成。
+  - 两平台均有ELF；VF2额外生成标准64字节RISC-V Image头的bin，入口0x40200000，text_offset为0x200000。
+  - Image有效长度包含BSS占用，分配池不进入文件；首次入口清BSS、次级入口不清BSS。
+  - trampoline对齐至4096且不超过一页；默认make目标为build，依赖文件不能改变默认目标。
 targets:
-  all:
-    pre:
-    - POSIX make/sh、RISC-V GCC/binutils、xxd 可用。
-    effects:
-    - 构建用户ELF、二进制与内嵌数据，编译内核并链接。
-    post:
-    - 生成可由 QEMU 加载的 kernel-qemu.elf；编译或链接失败停止并返回非零。
-    - 内嵌 initcode 及长度来自本次用户二进制；C/汇编/头文件变化触发相关目标增量重建。
+  build:
+    effects: [生成用户ELF、bin及头文件，再编译链接内核；VF2额外生成bin。]
+    post: [编译或链接失败返回非零；对象、依赖和生成头文件按平台与测试隔离。]
   run:
-    pre:
-    - qemu-system-riscv64 可用。
-    effects:
-    - 先构建镜像，再启动 QEMU。
-    post:
-    - 用 QEMU virt、130MiB内存、-bios default和所选CPUNUM启动该镜像，OpenSBI在S-mode跳转到内核，串口连接标准输入输出。
+    effects: [QEMU先构建再使用virt、130MiB、-bios default和所选核数启动；VF2拒绝执行并提示U-Boot booti。]
+  debug:
+    effects: [QEMU构建正确镜像并生成含当前ELF路径与GDB端口的.gdbinit，启动停止状态QEMU；VF2拒绝执行。]
   clean:
-    effects:
-    - 移除 target 与根目录生成镜像。
-    post:
-    - 删除本仓库构建产物，保留源码、规格和无关文件。
+    effects: [仅移除仓库内target构建产物。]

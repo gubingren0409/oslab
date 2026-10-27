@@ -2,82 +2,96 @@ module: kernel/syscall
 owns:
   - src/kernel/syscall/syscall.c
   - src/kernel/syscall/sysfunc.c
-  - src/kernel/syscall/method.h
-  - src/kernel/syscall/mod.h
-  - src/kernel/syscall/type.h
 state:
-  syscall_table: 固定有界分发表；编号与src/user/syscall_num.h一致，0至7依次为helloworld、copyin、copyout、copyinstr、brk、mmap、munmap、printf。
+  syscall_table: 本阶段编号1至10依次为brk、mmap、munmap、print_str、print_int、getpid、fork、wait、exit、sleep；内核与用户共享同一编号头文件。
 rules:
-  - 分发和参数提取要求当前进程及trapframe有效；丢失上下文、无效内核输出指针和参数索引属于内核错误。
-  - a7为调用号，a0至a5为六个原始参数，a0接收64位返回结果；只有usertrap推进epc，syscall不重复推进。
-  - 用户指针只能通过uvm复制访问；用户请求无效和资源不足返回失败，不能panic。
-  - 所有长度先检查完整64位参数，再缩窄到uint32；禁止把超过接口上限的用户值截断为合法长度。
-  - brk失败码为(uint64)-1，mmap失败码为0，其他服务失败码为(uint64)-1；mmap/munmap/heap遵守uvm事务规则，copy允许部分复制。
+  - a7为64位调用号，a0至a5为参数，a0为返回值；仅usertrap推进PC一次4字节。
+  - 分发表检查完整64位编号；未知号返回-1；所有用户指针经uvm访问。
+  - 长度先检查64位值再缩窄；mmap失败0，其他可失败调用返回-1。
+  - exit不返回；wait的非法退出码地址失败不得回收子进程。
 functions:
   'void syscall(void);':
+    pre:
+      - 当前进程和trapframe有效。
     effects:
-      - 从当前trapframe.a7查表执行对应服务，将结果写回a0。
+      - 有界查表，执行服务并写回a0。
     post:
-      - 未注册或超出表范围的编号在a0返回(uint64)-1且不执行服务；用户epc不变。
+      - 未知号-1；不改变用户PC。
   'uint64 arg_raw(int n);':
     pre:
       - n在0至5。
-    effects: []
-    post:
-      - 返回当前trapframe的对应a寄存器原始64位值。
-  'void arg_uint32(int n, uint32 *ip);':
-    pre:
-      - n在0至5且ip可写；调用者已排除不允许的高32位。
     effects:
-      - 向ip写入参数低32位。
+      - 读取trapframe对应a寄存器原值。
     post:
-      - 不访问用户指针或改变trapframe。
-  'void arg_uint64(int n, uint64 *ip);':
+      - 返回64位值，不访问用户内存。
+  'void arg_uint32(int n, uint32 *value);':
     pre:
-      - n在0至5且ip可写。
+      - n有效且输出可写，调用方已校验高位。
     effects:
-      - 向ip写入完整参数。
+      - 写出参数低32位。
     post:
-      - 不访问用户指针或改变trapframe。
+      - 不修改用户内存。
+  'void arg_uint64(int n, uint64 *value);':
+    pre:
+      - n有效且输出可写。
+    effects:
+      - 写出完整参数。
+    post:
+      - 不修改trapframe。
   'int arg_str(int n, char *buf, int maxlen);':
     pre:
-      - n在0至5；buf指向maxlen字节内核缓冲区。
+      - 内核缓冲区足够大。
     effects:
-      - 通过uvm_copyin_str读取参数指向的字符串。
+      - 最多maxlen字节受权限检查复制用户字符串。
     post:
-      - maxlen内包含NUL时返回0，否则返回-1；失败缓冲区可含前缀，不得当作完整字符串使用。
-  'uint64 sys_copyin(void);':
-    effects:
-      - 校验64位元素数并逐个复制用户int后打印。
-    post:
-      - 成功0，长度溢出或用户地址非法返回-1。
-  'uint64 sys_copyout(void);':
-    effects:
-      - 把固定数组1至5复制到用户目标。
-    post:
-      - 成功返回5，否则-1。
-  'uint64 sys_copyinstr(void);':
-    effects:
-      - 最多读取STR_MAXLEN字节用户字符串，确认NUL后打印。
-    post:
-      - 成功0，否则-1。
+      - 界内NUL成功0，否则-1，失败允许前缀。
   'uint64 sys_brk(void);':
     effects:
-      - 参数0查询；检查用户地址及差值，调用堆伸缩，成功后发布heap_top。
+      - 校验堆顶及差值，调用堆伸缩，成功后才更新heap_top。
     post:
-      - 返回当前或新堆顶；失败-1且元数据不变。
+      - 查询或成功返回堆顶，失败-1。
   'uint64 sys_mmap(void);':
     effects:
-      - 完整校验64位起点和长度，默认以RWU创建页对齐映射。
+      - 完整校验64位起点、长度并创建RWU匿名映射。
     post:
-      - 成功返回地址，失败0。
+      - 返回实际起点或0，不截断高位参数。
   'uint64 sys_munmap(void);':
     effects:
-      - 完整校验64位范围后调用原子解除映射。
+      - 完整校验参数并事务解除完整覆盖的范围。
     post:
-      - 成功0，失败-1。
-  'uint64 sys_printf(void);':
+      - 成功0或失败-1；含空洞不改原链。
+  'uint64 sys_print_str(void);':
     effects:
-      - 有界复制用户格式字符串后按普通字符串打印，不把用户内容当作内核格式。
+      - 有界复制用户字符串，确认NUL后以普通文本打印。
     post:
-      - 成功返回0，缺少NUL或非法用户地址返回-1。
+      - 成功0，非法用户地址或超长返回-1。
+  'uint64 sys_print_int(void);':
+    effects:
+      - 把参数的低32位按有符号整数打印。
+    post:
+      - 返回0。
+  'uint64 sys_getpid(void);':
+    effects:
+      - 读取当前进程pid。
+    post:
+      - 首进程返回1。
+  'uint64 sys_fork(void);':
+    effects:
+      - 调用proc_fork独立复制当前地址空间。
+    post:
+      - 父返回子pid，子a0为0，失败父返回-1。
+  'uint64 sys_wait(void);':
+    effects:
+      - 按用户退出码地址调用proc_wait。
+    post:
+      - 成功返回子pid；无子或非法地址-1；地址非法保留同一ZOMBIE。
+  'uint64 sys_exit(void);':
+    effects:
+      - 把低32位作为退出码交给proc_exit。
+    post:
+      - 不返回，不释放活动内核栈；进程进入ZOMBIE。
+  'uint64 sys_sleep(void);':
+    effects:
+      - 读取完整64位ntick并调用timer_wait。
+    post:
+      - 共享tick增量至少ntick后返回0。

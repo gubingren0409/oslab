@@ -9,7 +9,7 @@ state:
   entry_address: user_vector 与 user_return 只能以 TRAMPOLINE 加段内偏移的运行时地址进入；两者切换 satp 后仍在同一虚拟地址上继续执行。
 rules:
 - 切换 satp 前后均在同一 TRAMPOLINE 虚拟地址执行并刷新 TLB；用户寄存器保存和恢复不得混用页表。
-- 未知系统调用返回 -1；用户执行错误停止故障进程，不触发内核 panic；内核状态矛盾才 panic。
+- 未知系统调用返回 -1；无法恢复的用户错误经proc_exit(-1)停止故障进程并等待回收，不触发内核panic。
 - scause 5的S-mode时钟中断调用timer_interrupt_handler，以SBI TIME重设下一次事件；scause 9的外部中断调用external_interrupt_handler。
 functions:
   user_vector:
@@ -28,9 +28,9 @@ functions:
     - 由 user_vector 切换到内核页表后进入；当前进程已经完整发布，tf 指向其 trapframe，SSTATUS.SPP 为零且 SSTATUS.SIE 关闭。
     effects:
     - 立即把 stvec 重设为 kernel_vector，读取 scause、stval、sepc，并把发生 trap 的用户 PC 保存到 tf->epc。
-    - 对 8 号 U-mode ecall 先令 tf->epc=sepc+4，再按 tf->a7 分派；SYS_helloworld 输出固定消息并返回 0，未知调用号返回 -1。
+    - 对8号ecall先令tf->epc=sepc+4，开启中断后调用本阶段syscall分发表；未知编号返回-1。
     - 对 5 号时钟中断调用 timer_interrupt_handler，对 9 号外部中断调用 external_interrupt_handler；处理完成后调用 trap_user_return。
-    - 对其他用户异常输出 scause、sepc、stval 诊断，撤下当前进程并让本 hart 留在可处理中断的内核 wfi 循环，不触发 kernel panic。
+    - 用户时钟中断在设备处理后proc_yield；合法栈范围load/store缺页事务补齐后重试原指令；其他用户异常诊断后proc_exit(-1)。
     post:
     - 已支持的 trap 最终返回用户态；ecall 从下一条指令继续且不重复执行，除返回值 a0 与 PC 外的用户现场保持不变。
     - 用户态 timer/UART 中断处理后原 PC、寄存器和栈可继续使用；用户执行错误不会再次执行故障指令，也不会停止其他 hart。
@@ -44,7 +44,7 @@ functions:
     - 以 TRAPFRAME 和 MAKE_SATP(proc.pgtbl) 为参数调用 user_return 的 TRAMPOLINE 运行时入口。
     post:
     - 本函数不返回；user_return 恢复用户现场并以 sret 进入 U-mode，sscratch 为 TRAPFRAME，satp 为当前进程用户页表。
-    - 首次进入时 PC 为 USER_BASE、sp 为 TRAPFRAME；后续进入时从已保存的 tf->epc 与寄存器继续。
+    - 首次进入时PC为USER_BASE、sp为TRAPFRAME；后续从保存的PC继续；每次更新当前hart ID并fence.i，允许进程迁移。
 
   user_return:
     pre:

@@ -12,7 +12,7 @@ machine:
   harts:
     default: 2
     allowed: [1, 2]
-    scope: 仅描述QEMU运行核数，CPUNUM固定为2；VF2的hart_slots由学生查阅手册或DTB后填写，不是QEMU运行核数。
+    scope: QEMU可运行1或2核；VF2使用物理hart ID 1至4与5个数组槽，继承Lab5平台配置。
   platforms:
     qemu:
       ram_base: 0x80000000
@@ -30,9 +30,11 @@ machine:
       timebase_hz: 4000000
 rules:
   - 本规范定义阶段需求，源码与旧文本的差异按本规范修正。
-  - 沿用Lab4内核内存、锁、trap及上下文切换；Lab5首用户进程由boot_hartid直接swtch，辅助hart留在内核。
+  - 启动hart初始化进程表并发布首进程为RUNNABLE；所有有效hart进入scheduler，进程锁跨swtch交接。
   - 进程地址空间以heap_top、ustack_npage和mmap链描述，元数据只在映射操作成功后发布。
-  - 用户输入或资源不足返回服务失败；无法恢复的用户异常停止该用户程序；内核不变量错误panic。
+  - 用户输入或资源不足返回服务失败；无法恢复的用户异常经proc_exit转为ZOMBIE；内核不变量错误panic。
+  - 首进程收养孤儿；首进程退出也保留ZOMBIE到重启，其他进程继续运行。
+  - 延续Lab5双平台契约，由boot_hartid独占共享tick更新，避免VF2无hart0的冲突。
   - 映射修改失败保留操作前映射及元数据并回收临时资源；用户copy失败允许目标已有前缀。
 non_goals:
   - exec与文件系统
@@ -45,3 +47,4 @@ mechanisms:
   - 用户页表独立复制与按所有权销毁
   - a7编号及a0至a5参数的有界系统调用表
   - 明确链接main到用户镜像基址，trampoline完成用户和内核上下文切换
+  - fork/exit/wait、时间片抢占、sleep/wakeup与睡眠锁
