@@ -44,7 +44,7 @@ functions:
 
   void proc_make_first(void):
     pre:
-    - 由 hart0 在共享初始化完成且本 hart 的内核页表、trap 和 timer 均就绪后单次调用；KSTACK(0) 已在内核页表中映射。
+    - 由 boot_hartid 在共享初始化完成且本 hart 的内核页表、trap 和 timer 均就绪后单次调用；KSTACK(0) 已在内核页表中映射。
     - 当前 hart 尚未发布进程；initcode 是不超过一页、从 USER_BASE 开始执行的平坦用户映像。
     effects:
     - 构造唯一的用户进程 proczero：设置 pid，分配并清零 trapframe 页、用户页表、用户栈页和用户代码页。

@@ -32,6 +32,6 @@ functions:
     - 每个hart安装内核页表、本地PLIC与stvec环境，使用SBI TIME设置首次定时事件并开启中断。
     post:
     - 启动hart在共享初始化完成前不启动其他hart；每次HSM调用均检查sbi_ret_t.error。
-    - hart0完成本地执行环境后调用proc_make_first；其他hart等待init_state发布后完成本地初始化并停在可处理中断的wfi循环。
-    - 每个hart恰好输出一次带OpenSBI的启动提示；共享初始化仅由CAS选出的启动hart执行，首进程仅由hart0创建。
+    - boot_hartid完成本地执行环境后调用proc_make_first；其他hart等待init_state发布后完成本地初始化并停在可处理中断的wfi循环。
+    - 每个hart恰好输出一次带OpenSBI的启动提示；共享初始化仅由CAS选出的启动hart执行，首进程仅由boot_hartid创建。
     - 主流程不返回。

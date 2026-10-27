@@ -13,7 +13,7 @@ state:
   kernel_vector_frame: 内核栈上的256字节保存区，通用寄存器偏移与trap.S一致；sepc、sstatus由C处理函数从CSR读取。
 rules:
 - timer_create与PLIC全局初始化只由CAS选出的共享初始化hart执行一次；timer_init由每个hart在S-mode本地trap入口准备好后执行一次。
-- INTERVAL是正的硬件时间计数间隔，当前为1000000；system_timer.ticks计数hart0已处理的时钟中断，不等同于墙钟时间。
+- INTERVAL是正的硬件时间计数间隔，当前为1000000；system_timer.ticks计数boot_hartid已处理的时钟中断，不等同于墙钟时间。
 - OpenSBI在到期时向目标hart交付S-mode时钟中断；处理程序必须再次调用sbi_set_timer(r_time()+INTERVAL)，不使用M-mode timer_vector或SSIP转发。
 - PLIC claim返回非零IRQ后，同一hart处理完毕恰好complete一次；零表示无可领取源，不complete。
 - 内核trap进入C处理函数时SSTATUS.SIE关闭；kernel_vector恢复其保存的通用寄存器并以sret返回。
@@ -36,7 +36,7 @@ functions:
     - 全局tick计数可并发访问。
   "void timer_update(void);":
     pre:
-    - system_timer已初始化，调用路径只允许hart0贡献共享tick。
+    - system_timer已初始化，调用路径只允许boot_hartid贡献共享tick。
     effects:
     - 持有system_timer.lk时递增system_timer.ticks。
     post:
@@ -95,7 +95,7 @@ functions:
     effects:
     - 通过sbi_set_timer(r_time()+INTERVAL)设置当前hart的下一次时钟事件；当前hart为0时调用timer_update。
     post:
-    - 本次到期事件已重新安排；只有hart0对共享ticks贡献一次递增。
+    - 本次到期事件已重新安排；只有boot_hartid对共享ticks贡献一次递增。
   "void external_interrupt_handler(void);":
     effects:
     - claim一个IRQ；UART_IRQ交给uart_intr，其他非零IRQ输出诊断。
