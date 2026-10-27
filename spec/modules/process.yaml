@@ -5,61 +5,134 @@ owns:
 - src/kernel/proc/type.h
 - src/kernel/proc/method.h
 state:
-  cpus: 每hart的当前进程指针与保存的内核上下文；由OpenSBI交付并写入tp的hart ID索引，有效范围为0..NCPU-1。
-  proczero: 唯一用户进程，拥有用户页表、trapframe、用户代码页和栈页；使用预先映射的 KSTACK(0)。
-  context_t: 依次为 ra、sp、s0..s11 的 64 位槽；C 与 swtch 汇编布局一致。
-  user_trapframe_t: 288 字节：前五槽为 kernel_satp/kernel_sp/kernel_trap/epc/kernel_hartid，其后按给定头文件排列全部用户整数寄存器；a0
-    偏移112，t6偏移280。
-  trapframe_alias: trapframe 页在用户页表中以 TRAPFRAME 出现（RW，不含 PTE_U）；内核页表不映射 TRAPFRAME，内核经恒等映射以物理地址访问同一页，proc.tf 保存该内核可见地址。
+  proc_list: NPROC个进程槽；UNUSED、EMBRYO、SLEEPING、RUNNABLE、RUNNING、ZOMBIE状态由各自proc.lock保护。
+  proc_t: 包含lock、state、pid、parent、exit_code、sleep_space、kstack、pgtbl、trapframe、heap_top、ustack_npage、mmap、context、name。
+  cpus: 每hart的cpu_t含当前proc、scheduler上下文、noff中断关闭嵌套数和intena最外层关闭前的使能状态。
+  context_t: 按ra、sp、s0至s11顺序存放14个uint64，与swtch的保存恢复布局一致。
+  user_trapframe_t: 36个uint64依次为kernel_satp、kernel_sp、kernel_trap、epc、kernel_hartid、ra、sp、gp、tp、t0、t1、t2、s0、s1、a0至a7、s2至s11、t3至t6；与trampoline偏移一致。
+  pid_lock: 保护单调分配的pid，首个pid为1。
+  wait_lock: 保护parent关系和wait检查条件至睡眠的同步；其锁序早于任意进程锁。
+  proczero: 首进程及孤儿收养者；正常实验流程持续运行并回收子进程，若死亡则保留ZOMBIE槽直到重启。
 rules:
-- 首进程构造完成前不得发布为运行状态；失败不留下半初始化进程。
-- 虚拟地址零页不映射；TRAMPOLINE RX 和 TRAPFRAME RW 不含 PTE_U；用户代码 RXU、栈 RWU。
-- 本阶段不引入多进程 scheduler；首进程通过 swtch 与 trap_user_return 首次进入用户态。
-- cpu.proc 只在页表、trapframe、用户栈与代码页全部就绪后写入一次；本阶段仅 hart0 发布并运行 proczero。
+- 一个进程至多在一个hart上RUNNING；每个进程槽拥有独立的一页内核栈及相邻不可访问的guard page。
+- EMBRYO尚不可调度；地址空间、trapframe、父子关系完整后才能发布为RUNNABLE。
+- 需要同时持有wait_lock和进程锁时，必须先获取wait_lock；不得持进程锁等待wait_lock。
+- scheduler与被调度进程跨swtch交接同一进程锁；重新运行的进程按当前hart恢复中断记账，不假定仍在原hart。
+- cpus.noff/intena由lock模块维护；proc_init不得在已有中断嵌套或持锁期间清零它们。
+- 进程退出只发布ZOMBIE；wait负责释放用户页、页表页、trapframe和mmap节点，内核栈保留给进程槽复用。
 functions:
-  cpu_t *mycpu(void):
+  'void proc_init(void);':
     pre:
-    - 当前在S-mode，tp 保存 OpenSBI 交付的 hart ID 且位于 0..NCPU-1。
-    effects: []
-    post:
-    - 返回 tp 对应的 cpus 元素；无效 hart id 是内核不变量错误。
-
-  proc_t *myproc(void):
-    pre:
-    - 当前在S-mode，tp 保存有效 hart ID。
-    effects: []
-    post:
-    - 返回当前 hart 的进程指针，允许 NULL；cpu.proc 只在首进程构造完成后写入，读取无需关中断。
-
-  pgtbl_t proc_pgtbl_init(uint64 trapframe):
-    pre:
-    - trapframe 为调用者预先分配、页对齐、尚未被其他对象使用的用户物理页；物理分配器已经初始化。
-    - TRAMPOLINE 与 TRAPFRAME 为该用户页表中的固定虚拟地址；trampoline 段页对齐且不超过一页。
+      - 单次共享初始化，尚无调度。
     effects:
-    - 分配并清零一张 Sv39 用户页表，建立 TRAMPOLINE 到 trampoline 物理页的 RX 映射和 TRAPFRAME 到 trapframe 页的 RW 映射，两者均不含 PTE_U。
-    - 只建立上述两项映射：不修改内核页表，不映射用户代码、用户栈和虚拟地址零页。
+      - 初始化进程表、pid_lock、wait_lock；pid从1开始，不重置CPU的中断嵌套。
     post:
-    - 成功返回用户页表根地址，可直接作为 MAKE_SATP 的输入；trapframe 页在该页表中只以 TRAPFRAME 可见。
-    - 必要分配或映射失败时回收本次建立的页表页并返回 NULL；trapframe 页与已发布页表保持不变。
-
-  void proc_make_first(void):
+      - 所有槽UNUSED且内核栈地址按槽固定。
+  'pgtbl_t proc_pgtbl_init(uint64 trapframe);':
     pre:
-    - 由 hart0 在共享初始化完成且本 hart 的内核页表、trap 和 timer 均就绪后单次调用；KSTACK(0) 已在内核页表中映射。
-    - 当前 hart 尚未发布进程；initcode 是不超过一页、从 USER_BASE 开始执行的平坦用户映像。
+      - trapframe为独占用户池物理页。
     effects:
-    - 构造唯一的用户进程 proczero：设置 pid，分配并清零 trapframe 页、用户页表、用户栈页和用户代码页。
-    - 用 proc_pgtbl_init 取得用户页表，在 TRAPFRAME-PGSIZE 建立用户栈页的 RWU 映射，在 USER_BASE 建立代码页的 RXU 映射，把 initcode 复制到代码页并执行 fence.i 同步取指视图。
-    - 设置 ustack_npage=1、heap_top=USER_BASE+PGSIZE、kstack=KSTACK(0)、tf 为 trapframe 页的内核可见地址。
-    - 设置 tf->epc=USER_BASE、tf->sp=TRAPFRAME、ctx.ra=trap_user_return、ctx.sp=KSTACK(0)+PGSIZE；全部完成后才发布 cpu.proc。
-    - 以 swtch 保存当前 hart 的内核上下文并切入 proczero 上下文。
+      - 建立根页及无U的trampoline RX、trapframe RW映射。
     post:
-    - 成功时不正常返回；proczero 从 trap_user_return 开始，经 user_return 进入 U-mode 的 USER_BASE，用户栈顶为 TRAPFRAME。
-    - 任一分配或映射失败时回收本次资源并在发布进程前 panic，不留下半初始化进程或泄漏页。
-
-  void swtch(context_t *old, context_t *new):
+      - 成功返回根；失败只回收临时页表，返回NULL。
+  'proc_t *proc_alloc(void);':
+    effects:
+      - 锁定UNUSED槽，改为EMBRYO，分配pid、trapframe、页表和首次上下文。
+    post:
+      - 成功带进程锁返回；OOM回收临时资源并解锁返回NULL。
+  'void proc_free(proc_t *p);':
     pre:
-    - old/new 是互不重叠的可读写有效 context_t；目标 sp/ra 有效。
+      - 持有进程锁且该进程不再运行，父子关系变更受wait_lock保护。
     effects:
-    - 写 old 上下文，替换当前寄存器和控制流。
+      - 销毁用户页表、用户页、trapframe和mmap节点，清理状态。
     post:
-    - 保存当前 ra/sp/s0..s11 到 old，恢复 new 对应寄存器，经恢复的 ra 继续；old 将来被恢复时，本次调用才继续返回。
+      - 槽变回UNUSED，固定内核栈保留供复用。
+  'void proc_make_first(void);':
+    pre:
+      - 启动hart单次调用，进程表和页表已就绪。
+    effects:
+      - 构造pid1代码及栈，发布proczero和完整PCB，置为RUNNABLE。
+    post:
+      - 返回到main，之后由scheduler首次调度；失败清理后报告必要启动失败。
+  'void proc_return(void) __attribute__((noreturn));':
+    pre:
+      - 首次调度时当前进程锁跨swtch交接。
+    effects:
+      - 释放当前进程锁并进入trap_user_return。
+    post:
+      - 不返回，进入U-mode。
+  'int proc_fork(void);':
+    pre:
+      - 当前进程RUNNING。
+    effects:
+      - 创建EMBRYO槽，独立复制用户页、trapframe和mmap节点；子a0为0；按wait_lock再进程锁顺序发布父子关系及RUNNABLE。
+    post:
+      - 父返回子pid；失败-1且不泄漏、不发布半成品。
+  'void proc_yield(void);':
+    effects:
+      - 持进程锁将RUNNING改为RUNNABLE并调用proc_sched。
+    post:
+      - 再次被调度时解锁继续；无当前进程时直接返回。
+  'void proc_sched(void);':
+    pre:
+      - 仅持有当前进程锁，noff为1、SIE关闭、状态不为RUNNING。
+    effects:
+      - 保存进程上下文切回本hart scheduler；保留执行流原intena并在迁移后恢复到当前CPU。
+    post:
+      - 再次运行时仍持进程锁，不使用旧hart的CPU对象。
+  'void proc_scheduler(void) __attribute__((noreturn));':
+    pre:
+      - 每个有效hart独立调用，局部trap环境已就绪。
+    effects:
+      - 循环在锁内选择RUNNABLE，设RUNNING及cpu.proc，swtch后撤下cpu.proc并释放交接锁。
+    post:
+      - 永久运行；一个进程不会并发在两个hart执行。
+  'swtch':
+    pre:
+      - 源目标上下文有效，进程状态及锁交接满足调用约定。
+    effects:
+      - 保存ra、sp、s0至s11，再恢复目标相同布局。
+    post:
+      - 在目标ra和sp继续，不恢复tp以保持实际hart身份。
+  'void proc_sleep(void *sleep_space, spinlock_t *lock);':
+    pre:
+      - 当前为可睡眠进程且持有条件锁；条件锁不是进程锁。
+    effects:
+      - 先取得进程锁再释放条件锁，记录通道并进入SLEEPING，调度；醒后清通道、解进程锁并重新取得条件锁。
+    post:
+      - 返回时条件锁仍由当前执行流持有，无检查到睡眠的丢失唤醒。
+  'void proc_wakeup(void *sleep_space);':
+    pre:
+      - 调用者按条件资源的锁保护条件。
+    effects:
+      - 逐槽加锁把匹配通道的SLEEPING改为RUNNABLE，跳过当前进程。
+    post:
+      - 唤醒所有匹配等待者，不保证立即获得资源。
+  'void proc_try_wakeup(proc_t *p);':
+    pre:
+      - 持wait_lock且未持目标进程锁。
+    effects:
+      - 对父进程自身通道执行受进程锁保护的条件唤醒。
+    post:
+      - 若父进程正在等待则变为RUNNABLE。
+  'void proc_reparent(proc_t *parent);':
+    pre:
+      - 持wait_lock。
+    effects:
+      - 把退出进程所有子进程的parent改为proczero，唤醒收养者。
+    post:
+      - 孤儿有稳定父指针，死亡proczero仍保留至重启。
+  'void proc_exit(int exit_code) __attribute__((noreturn));':
+    pre:
+      - 当前进程RUNNING且未持锁。
+    effects:
+      - 持wait_lock过继子进程并唤醒父；再持进程锁写退出码和ZOMBIE，释放wait_lock后永久调度离开。
+    post:
+      - 不释放正在使用的栈；proczero退出同样保留ZOMBIE且不panic。
+  'int proc_wait(uint64 user_addr);':
+    pre:
+      - 当前进程RUNNING。
+    effects:
+      - 持wait_lock扫描子进程；ZOMBIE退出码先copyout再释放资源；无ZOMBIE则以自身为通道原子睡眠。
+    post:
+      - 成功返回子pid；无子或非法地址-1；copyout失败保留子进程供重试。
