@@ -1,78 +1,93 @@
-# Lab5 实验报告：用户虚拟内存、系统调用与双平台构建
+# Lab6 实验报告：抢占式多进程与生命周期
 
 - 学生：谷秉仁
-- 实验分支：`lab-5`
-- 课程框架：`course/lab5@4a0f4b72`
-- 当前状态：Spec 与代码已实现，VMware 运行验收待恢复；VisionFive 2 实板验收待接入设备。
+- 实验分支：`lab-6`
+- 课程框架：`course/lab6@7effc117`，在本地 Lab5 实现之上增量接入。
+- 当前状态：Spec、代码和回归用例已实现；尚未在 VMware 中编译与运行，不能计为验收通过。
 
 ## 实验要求
 
-在 Lab4 首个用户进程上，实现 copyin/copyout/copyinstr、动态堆、多页栈缺页增长、
-mmap 节点池与区间管理、独立用户地址空间复制和销毁，以及统一系统调用分发。
-新增平台要求包括 QEMU/VisionFive 2 隔离构建、标准 RISC-V Image 头、非零 hart ID、
-开发板 UART/PLIC、SBI TIME/HSM 和叶 PTE 的 A/D 位。
+从唯一用户进程扩展为多进程：进程槽与状态机、独立内核栈、调度器与时钟抢占、
+fork/exit/wait、孤儿过继、sleep/wakeup、睡眠锁以及本阶段系统调用。
+首进程pid应为1；支持QEMU单核及双核；父子内存独立，用户错误只结束违规进程，
+资源不足不得发布不完整子进程。
 
-课程 PDF 含旧版空闲区链表示意；本实现以当前 README 与 Spec 为准，mmap 链记录
-已分配区间，只有权限一致的相邻区间才合并。
+## 环境
 
-## 环境与入口
+继续使用 VMware Ubuntu 22.04.5 中的既定工具链与 QEMU 5.1/OpenSBI 0.7。
+Windows `E:\oslab\oslab` 和 Ubuntu `/home/oslab/lab/oslab` 共用源码。
+未使用 Windows 或 WSL 代替实验编译环境。
 
-沿用 VMware Ubuntu 22.04.5、riscv64-linux-gnu-gcc 11.4、Binutils 2.38、
-QEMU 5.1、OpenSBI 0.7 和 GDB multiarch 12.1。
-Windows `E:\oslab\oslab` 与 Ubuntu `/home/oslab/lab/oslab` 是同一份共享源码。
-代码编辑在宿主机完成，编译、QEMU 和调试只在 VMware 中执行。
+## 设计与实现
 
-## 实现说明
+### 状态与资源
 
-- 用户复制按页检查 V/U/R 或 V/U/W；拒绝内核特殊映射，字符串必须在上限内遇到 NUL。
-- 多页分配与页表复制复用页表事务：数据叶与新中间层分别标记，失败全部回收，
-  不改写旧映射或软件保留 PTE。
-- brk 先校验完整 64 位参数，成功后发布 heap_top；栈只在合法高地址范围发生
-  load/store page fault 时向下补齐，并重试原指令。
-- mmap 维护有序已分配区间，支持 first-fit、固定地址、合并与 munmap 裁剪拆分。
-  解除前预检完整覆盖及拆分节点，空洞或节点不足时保持原状。
-- 页表销毁只回收用户叶与页表页，trapframe 和 trampoline 的物理页由原所有者管理。
-- 系统调用编号 0～7 为 helloworld、copyin、copyout、copyinstr、brk、mmap、
-  munmap、printf；未知编号返回 -1，ecall 的 PC 只增加一次 4。
-- QEMU 与 VF2 使用独立对象、用户镜像和生成头文件。保留助教工具链，兼容旧版 xxd。
-- 初次入口清 BSS；HSM 次级入口不清 BSS。boot_hartid 标识实际启动 hart，
-  每核使用独立栈；只有启动 hart 更新共享 tick 并创建用户进程。
+32个进程槽分别拥有独立内核栈及guard page。增加EMBRYO表示构造中的不可调度状态，
+资源、父子关系与上下文全部就绪后才发布RUNNABLE。pid使用全局锁单调分配。
+退出进程只转为ZOMBIE；wait负责用户页、页表、trapframe和mmap节点的回收，
+固定内核栈保留供槽复用。
 
-## VisionFive 2 参数
+### 调度与多核迁移
 
-依据课程引用的 Linux JH7110 设备树和 RISC-V Image 规范设置：
-DRAM 起点 0x40000000，内核起点 0x40200000，管理窗口结束 0x48200000；
-有效 hart 为 1～4，数组保留 5 个物理 ID 槽；UART0 为 0x10000000、IRQ32、
-32 位访问、4 字节寄存器间隔；S-mode PLIC context 为 2*hart；
-timebase 4MHz，100ms interval 为 400000；叶项预置 A/D，非叶只带 V。
+每个有效hart扫描RUNNABLE进程。scheduler和进程跨swtch交接同一把进程锁，
+防止同一进程在两颗hart同时运行。proc_sched要求仅持进程锁、noff=1及SIE关闭。
+恢复执行流时使用当前hart的CPU对象恢复intena，不能写入切换前缓存的CPU对象。
+内核trap返回恢复原sepc/sstatus，但不恢复旧tp；用户返回重写实际hart ID并执行fence.i。
 
-开发板继承固件串口配置，产出带 64 字节 Image 头的 kernel-vf2.bin。
-真正启动前仍须用匹配板卡 DTB 与 bdinfo 核实固件、DRAM 保留区和 DTB 所在位置。
-当前没有实板日志，不能把构建适配计为实板验收通过。
+### 生命周期与条件等待
 
-## 可复现检查
+fork独立复制用户代码、堆、已增长的栈与mmap物理页和节点；子a0=0，父返回子pid。
+wait_lock保护父子关系和检查到睡眠的窗口，锁顺序固定为wait_lock到进程锁。
+非法退出码地址使wait失败但保留原ZOMBIE，允许合法地址重试。
+退出时把孤儿交给proczero；首进程自身死亡也进入保留ZOMBIE，不panic，其他进程继续调度。
 
-在 VMware 中执行：
+sleep先取得进程锁再释放条件锁；wakeup把匹配通道的等待者转成RUNNABLE。
+timer_wait在同一时钟锁下检查和睡眠，每个共享tick唤醒等待者。
+睡眠锁利用其内部自旋锁、进程通道与持有者pid构成可睡眠互斥。
+
+### 系统调用与平台兼容
+
+本阶段编号1至10依次为brk、mmap、munmap、print_str、print_int、getpid、
+fork、wait、exit、sleep；编号头文件由内核与用户共享，不沿用Lab5的临时测试ABI。
+Lab5与Lab6分别保存独立分支。
+
+延续课程Lab5已发布的VF2构建增量。QEMU允许1或2核，单核对象隔离到
+target/qemu/hart1，避免改变CPUNUM后误用旧对象。
+VF2仍用物理hart1至4、32位UART、硬件A/D和Image头。
+共享tick沿用Lab5的boot_hartid策略，避免VF2没有hart0与旧文本要求冲突。
+真实开发板验收仍待设备、固件和内存布局确认。
+
+## 回归用例
+
+`tests/kernel_memory.c`检查用户复制权限、跨页字符串、独立地址空间、
+页表OOM、mmap节点耗尽与完整回滚，并对回收前后的两类空闲页计数。
+
+`tests/user/lab6.c`检查pid1、无子wait、非法syscall、父子堆/栈/mmap隔离、
+非法wait地址重试、子进程零页故障、sleep(30)与另一可运行进程并行，以及槽复用。
+其他用例检查两次fork输出1/2/4次、31个子槽耗尽后复用、首进程退出后子进程继续、
+睡眠锁竞争和跨睡眠保持互斥。测试私有调用63只存在于SELFTEST镜像，不进入正式ABI。
+
+所有测试现阶段均未执行，不记录预期结果为实际通过。
+
+## 复现命令
+
+恢复VMware服务并确认SSH和共享目录后，在Ubuntu中执行：
 
 ```bash
 cd /home/oslab/lab/oslab
 make clean
 make -j2 build
-python3 tools/test-labs.py lab5
+python3 tools/test-labs.py lab6
 make -j2 PLATFORM=vf2
 make -j2 PLATFORM=qemu
 make debug
 ```
 
-`make run PLATFORM=vf2` 和 `make debug PLATFORM=vf2` 应拒绝执行并提示使用 U-Boot
-booti。禁止用 QEMU 运行 VF2 镜像。实板加载步骤见 docs/visionfive2-porting.md。
+默认用户程序fork一个子进程，子sleep(30)后exit(1234)，父wait并打印退出码。
+完整验收还须检查ELF入口、Image头、单/双核日志、UART，以及VF2实板。
 
-## 测试覆盖与当前结果
+## 当前阻塞
 
-已加入可重复测试，尚未运行：
-跨页用户复制、字符串长度与读写权限、特殊映射保护、独立页表复制、
-内核页耗尽回滚、mmap 节点耗尽回滚、跨区间解除、堆伸缩、真实多页栈缺页、
-非法系统调用和高 32 位非零的长度参数。
-
-当前 Windows 的 VMware Authorization Service 停止，服务启动的 UAC 操作被取消，
-虚拟机没有启动；尚未在其他环境替代编译。恢复服务并通过上述检查后再记录实际结果。
+VMware Authorization Service已停止，管理员服务恢复的UAC操作返回“操作已被用户取消”。
+虚拟机未启动且SSH主机名无法解析，构建与运行尚未进行。
+需要在Windows管理员PowerShell启动VMAuthdService，随后继续VMware验证。
