@@ -1,6 +1,7 @@
 #pragma once
 
 /* 基本类型定义 */
+#ifndef __ASSEMBLER__
 
 typedef char int8;
 typedef short int16;
@@ -29,14 +30,28 @@ typedef enum
 #endif
 
 
+extern uint64 boot_hartid;
+#endif
+
 /* OS 全局变量 */
 
-#define NCPU 2 // 最大CPU数量
+#ifdef VISIONFIVE2
+#define NCPU 5
+#define FIRST_HART 1
+#else
+#define NCPU 2
+#define FIRST_HART 0
+#endif
 
 /* SBI Hart State Management extension */
 #define SBI_SUCCESS 0
 #define SBI_EXT_HSM 0x48534D
 #define SBI_HSM_HART_START 0
+#define SBI_HSM_HART_STOP 1
+#define SBI_EXT_RFENCE 0x52464E43
+#define SBI_RFENCE_SFENCE_VMA 1
+#define SBI_EXT_SRST 0x53525354
+#define SBI_SRST_RESET 0
 
 /* SBI Timer extension */
 #define SBI_EXT_TIME 0x54494D45

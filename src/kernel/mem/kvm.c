@@ -187,7 +187,7 @@ int vm_mappages(pgtbl_t pgtbl, uint64 va, uint64 pa, uint64 len, int perm)
         pte_t *pte = vm_getpte_txn(pgtbl, va + mapped, true);
         if (pte == NULL || *pte != 0)
             goto rollback;
-        *pte = PA_TO_PTE(pa + mapped) | (uint64)perm | PTE_V;
+        *pte = PA_TO_PTE(pa + mapped) | (uint64)perm | PTE_V | PTE_MACHINE;
     }
 
     vm_finish_txn(pgtbl, true);
@@ -203,6 +203,103 @@ rollback:
     }
     vm_finish_txn(pgtbl, false);
     return -1;
+}
+
+// 所有新用户叶也使用软件位标记，允许复制失败时保留目标特殊映射。
+#define PTE_SW_USER_NEW (1ul << 9)
+
+static void vm_finish_user_leaves(pgtbl_t pgtbl, bool commit)
+{
+    for (int i = 0; i < 512; i++)
+    {
+        pte_t *pte = &pgtbl[i];
+        if (!(*pte & PTE_V))
+            continue;
+        if (PTE_CHECK(*pte))
+            vm_finish_user_leaves(pte_child(*pte, true), commit);
+        else if (*pte & PTE_SW_USER_NEW)
+        {
+            if (commit)
+                *pte &= ~PTE_SW_USER_NEW;
+            else
+            {
+                uint64 pa = PTE_TO_PA(*pte);
+                *pte = 0;
+                pmem_free(pa, false);
+            }
+        }
+    }
+}
+
+int vm_user_alloc(pgtbl_t pgtbl, uint64 begin, uint64 end, int perm)
+{
+    if (pgtbl == NULL || begin > end || end > VA_MAX ||
+        (begin % PGSIZE) || (end % PGSIZE) ||
+        !(perm & PTE_U) || !(perm & (PTE_R | PTE_X)) ||
+        (perm & ~(PTE_R | PTE_W | PTE_X | PTE_U)) ||
+        ((perm & PTE_W) && !(perm & PTE_R)))
+        return -1;
+    for (uint64 va = begin; va < end; va += PGSIZE)
+    {
+        pte_t *pte = vm_getpte_txn(pgtbl, va, true);
+        if (pte == NULL || *pte != 0)
+            goto fail;
+        void *page = pmem_alloc(false);
+        if (page == NULL)
+            goto fail;
+        *pte = PA_TO_PTE(page) | perm | PTE_V | PTE_MACHINE | PTE_SW_USER_NEW;
+    }
+    vm_finish_user_leaves(pgtbl, true);
+    vm_finish_txn(pgtbl, true);
+    sfence_vma();
+    return 0;
+fail:
+    vm_finish_user_leaves(pgtbl, false);
+    vm_finish_txn(pgtbl, false);
+    sfence_vma();
+    return -1;
+}
+
+static int vm_copy_user_level(pgtbl_t old, pgtbl_t new, int level, uint64 prefix)
+{
+    for (int i = 0; i < 512; i++)
+    {
+        pte_t src = old[i];
+        if (!(src & PTE_V))
+            continue;
+        uint64 va = prefix | ((uint64)i << VA_SHIFT(level));
+        if (PTE_CHECK(src))
+        {
+            assert(level > 0, "vm_user_copy: malformed table");
+            if (vm_copy_user_level(pte_child(src, false), new, level - 1, va) < 0)
+                return -1;
+        }
+        else if (src & PTE_U)
+        {
+            assert(level == 0, "vm_user_copy: large user page");
+            pte_t *dst = vm_getpte_txn(new, va, true);
+            if (dst == NULL || *dst != 0)
+                return -1;
+            void *page = pmem_alloc(false);
+            if (page == NULL)
+                return -1;
+            memmove(page, (void *)PTE_TO_PA(src), PGSIZE);
+            *dst = PA_TO_PTE(page) | (src & (PTE_R | PTE_W | PTE_X | PTE_U)) |
+                   PTE_V | PTE_MACHINE | PTE_SW_USER_NEW;
+        }
+    }
+    return 0;
+}
+
+int vm_user_copy(pgtbl_t old, pgtbl_t new)
+{
+    if (old == NULL || new == NULL || old == new)
+        return -1;
+    bool success = vm_copy_user_level(old, new, 2, 0) == 0;
+    vm_finish_user_leaves(new, success);
+    vm_finish_txn(new, success);
+    asm volatile("fence.i" ::: "memory");
+    return success ? 0 : -1;
 }
 
 void vm_unmappages(pgtbl_t pgtbl, uint64 va, uint64 len, bool freeit)

@@ -1,5 +1,6 @@
 #include "mod.h"
 #include "../../user/syscall_num.h"
+#include "../syscall/mod.h"
 
 // in trampoline.S
 extern char trampoline[];
@@ -89,15 +90,14 @@ void trap_user_handler(void)
     {
         // ecall自身不会自动前进sepc；必须跳过它，避免返回后重复调用。
         proc->tf->user_to_kern_epc = sepc + 4;
-        if (proc->tf->a7 == SYS_helloworld)
-        {
-            printf("proczero: hello world!\n");
-            proc->tf->a0 = 0;
-        }
-        else
-        {
-            proc->tf->a0 = (uint64)-1;
-        }
+        syscall();
+    }
+    else if (cause == 13 || cause == 15)
+    {
+        int64 pages = uvm_ustack_grow(proc->pgtbl, proc->ustack_npage, stval);
+        if (pages < 0)
+            user_fault_stop(proc, scause, sepc, stval);
+        proc->ustack_npage = pages;
     }
     else
     {

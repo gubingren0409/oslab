@@ -7,6 +7,9 @@ sbi_ret_t sbi_ecall(uint64 eid, uint64 fid,
                     uint64 arg3, uint64 arg4, uint64 arg5);
 sbi_ret_t sbi_hart_start(uint64 hartid, uint64 start_addr, uint64 opaque);
 sbi_ret_t sbi_set_timer(uint64 stime_value);
+sbi_ret_t sbi_hart_stop(void);
+sbi_ret_t sbi_remote_sfence_vma(uint64 mask, uint64 base, uint64 start, uint64 size);
+sbi_ret_t sbi_system_reset(uint64 type, uint64 reason);
 
 /* RISC-V相关的寄存器读写 */
 

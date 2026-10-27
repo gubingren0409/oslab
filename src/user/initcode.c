@@ -1,14 +1,12 @@
 #include "sys.h"
 
-static __attribute__((noinline)) long helloworld(void)
-{
-    return syscall(SYS_helloworld);
-}
-
 __attribute__((section(".text.entry"), noreturn)) int main(void)
 {
-    (void)helloworld();
-    (void)helloworld();
+    int values[5];
+    syscall(SYS_copyout, values);
+    syscall(SYS_copyin, values, 5);
+    syscall(SYS_copyinstr, "hello, world");
+    syscall(SYS_printf, "Lab5: syscall/copy ready\n");
     while (1)
         asm volatile("" ::: "memory");
 }

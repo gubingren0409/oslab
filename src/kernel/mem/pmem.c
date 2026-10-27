@@ -44,6 +44,15 @@ bool check_inkernel(uint64 p)
     return p >= kern_region.begin && p < kern_region.end;
 }
 
+uint32 pmem_available(bool in_kernel)
+{
+    alloc_region_t *region = in_kernel ? &kern_region : &user_region;
+    spinlock_acquire(&region->lk);
+    uint32 count = region->allocable;
+    spinlock_release(&region->lk);
+    return count;
+}
+
 // 尝试返回一个可分配的清零后的物理页
 // 内存耗尽是可恢复的运行时条件，返回NULL。
 void *pmem_alloc(bool in_kernel)

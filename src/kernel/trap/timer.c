@@ -41,7 +41,7 @@ void timer_create(void)
 // 多核情况下只允许CPU-0调用, 否则ticks会涨得比时钟还快
 void timer_update(void)
 {
-    if (mycpuid() != 0)
+    if (mycpuid() != boot_hartid)
         return;
 
     spinlock_acquire(&system_timer.lk);

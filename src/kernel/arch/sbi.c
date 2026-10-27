@@ -35,3 +35,18 @@ sbi_ret_t sbi_set_timer(uint64 stime_value)
   return sbi_ecall(SBI_EXT_TIME, SBI_TIME_SET_TIMER,
                    stime_value, 0, 0, 0, 0, 0);
 }
+
+sbi_ret_t sbi_hart_stop(void)
+{
+  return sbi_ecall(SBI_EXT_HSM, SBI_HSM_HART_STOP, 0, 0, 0, 0, 0, 0);
+}
+
+sbi_ret_t sbi_remote_sfence_vma(uint64 mask, uint64 base, uint64 start, uint64 size)
+{
+  return sbi_ecall(SBI_EXT_RFENCE, SBI_RFENCE_SFENCE_VMA, mask, base, start, size, 0, 0);
+}
+
+sbi_ret_t sbi_system_reset(uint64 type, uint64 reason)
+{
+  return sbi_ecall(SBI_EXT_SRST, SBI_SRST_RESET, type, reason, 0, 0, 0, 0);
+}

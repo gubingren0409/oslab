@@ -1,7 +1,7 @@
 #include "mod.h"
 
 // 这个文件通过make build生成, 是proczero对应的ELF文件
-#include "../../user/initcode.h"
+#include "initcode.h"
 #define initcode initcode_bin
 #define initcode_len initcode_bin_len
 
@@ -61,7 +61,7 @@ pgtbl_t proc_pgtbl_init(uint64 trapframe)
 */
 void proc_make_first()
 {
-    assert(mycpuid() == 0, "proc_make_first: not hart0");
+    assert(mycpuid() == boot_hartid, "proc_make_first: not boot hart");
     assert(myproc() == NULL && proczero.pgtbl == NULL,
            "proc_make_first: already initialized");
     assert(initcode_len > 0 && initcode_len <= PGSIZE,

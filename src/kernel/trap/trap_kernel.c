@@ -155,7 +155,7 @@ void timer_interrupt_handler()
     // 每个CPU都有独立的定时事件，因此每个CPU都必须重新设置。
     timer_rearm();
 
-    // 只由CPU-0更新共享时钟。
-    if (mycpuid() == 0)
+    // 只由实际启动 hart 更新共享时钟，其他 hart 仍各自重装 timer。
+    if (mycpuid() == boot_hartid)
         timer_update();
 }
