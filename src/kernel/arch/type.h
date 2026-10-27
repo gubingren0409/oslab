@@ -39,7 +39,10 @@ extern uint64 boot_hartid;
 #define NCPU 5
 #define FIRST_HART 1
 #else
-#define NCPU 2
+#ifndef QEMU_HARTS
+#define QEMU_HARTS 2
+#endif
+#define NCPU QEMU_HARTS
 #define FIRST_HART 0
 #endif
 

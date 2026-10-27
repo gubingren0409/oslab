@@ -99,6 +99,8 @@ void trap_kernel_handler()
         {
         case 5:
             timer_interrupt_handler();
+            if (myproc() != NULL && mycpu()->noff == 0)
+                proc_yield();
             break;
 
         case 9:
@@ -122,6 +124,9 @@ void trap_kernel_handler()
                scause, sepc, stval);
         panic("trap_kernel_handler");
     }
+    // 调度期间其他进程可能改写CSR；返回被中断的内核执行流前恢复其现场。
+    w_sepc(sepc);
+    w_sstatus(sstatus);
 }
 
 // 外设中断处理 (基于PLIC，lab-3只需要识别和处理UART中断)

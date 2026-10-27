@@ -395,7 +395,7 @@ void kvm_init(void)
     if (candidate == NULL)
         panic("kvm_init: cannot allocate root");
 
-    uint64 stack_page = 0;
+    uint64 stack_pages[N_PROC] = {0};
     if (vm_mappages(candidate, UART_BASE, UART_BASE, PGSIZE,
                     PTE_R | PTE_W) < 0 ||
         vm_mappages(candidate, PLIC_BASE, PLIC_BASE, PLIC_SIZE,
@@ -411,11 +411,14 @@ void kvm_init(void)
                     PGSIZE, PTE_R | PTE_X) < 0)
         goto fail;
 
-    stack_page = (uint64)pmem_alloc(true);
-    if (stack_page == 0 ||
-        vm_mappages(candidate, KSTACK(0), stack_page, PGSIZE,
-                    PTE_R | PTE_W) < 0)
-        goto fail;
+    for (int i = 0; i < N_PROC; i++)
+    {
+        stack_pages[i] = (uint64)pmem_alloc(true);
+        if (stack_pages[i] == 0 ||
+            vm_mappages(candidate, KSTACK(i), stack_pages[i], PGSIZE,
+                        PTE_R | PTE_W) < 0)
+            goto fail;
+    }
 
     __sync_synchronize();
     kernel_pgtbl = candidate;
@@ -423,8 +426,9 @@ void kvm_init(void)
 
 fail:
     vm_freewalk(candidate);
-    if (stack_page != 0)
-        pmem_free(stack_page, true);
+    for (int i = 0; i < N_PROC; i++)
+        if (stack_pages[i] != 0)
+            pmem_free(stack_pages[i], true);
     panic("kvm_init: cannot construct pagetable");
 }
 

@@ -3,9 +3,26 @@
 
 static void *held_pages[KERN_PAGES];
 static mmap_region_t *held_nodes[N_MMAP];
+static sleeplock_t test_sleep_lock;
+static int sleep_lock_counter;
+
+// 仅SELFTEST镜像通过私有调用63暴露，正式系统调用表不包含此入口。
+uint64 memory_sleeplock_test(void)
+{
+    assert(!sleeplock_holding(&test_sleep_lock), "test: wrong sleep-lock owner");
+    sleeplock_acquire(&test_sleep_lock);
+    int previous = sleep_lock_counter;
+    timer_wait(2);
+    assert(sleeplock_holding(&test_sleep_lock) && previous == sleep_lock_counter,
+           "test: sleep-lock exclusion");
+    sleep_lock_counter++;
+    sleeplock_release(&test_sleep_lock);
+    return 0;
+}
 
 void memory_selftest(void)
 {
+    sleeplock_init(&test_sleep_lock, "test sleeping mutex");
     uint32 initial_kernel = pmem_available(true), initial_user = pmem_available(false);
     pgtbl_t root = pmem_alloc(true);
     assert(root != NULL, "test: root");

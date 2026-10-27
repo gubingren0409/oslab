@@ -49,7 +49,7 @@
 typedef struct cpu
 {
     int noff;      // 关中断的深度
-    int origin;    // 第一次关中断前的状态
+    int intena;    // 第一次关中断前的状态
     proc_t *proc;  // 当前用户进程
     context_t ctx; // 进入进程前保存的内核上下文
 } cpu_t;

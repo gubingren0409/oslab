@@ -11,11 +11,16 @@ include common.mk
 
 # 沿用助教规定的 riscv64-linux-gnu 工具链。
 CPUNUM ?= 2
-ifneq ($(CPUNUM),2)
-$(error Lab5 requires CPUNUM=2)
+ifeq ($(filter $(CPUNUM),1 2),)
+$(error Lab6 supports CPUNUM=1 or CPUNUM=2)
 endif
 # 两个平台的生成文件完全隔离。
 TARGET = target/$(PLATFORM)
+ifeq ($(PLATFORM),qemu)
+ifneq ($(CPUNUM),2)
+TARGET := $(TARGET)/hart$(CPUNUM)
+endif
+endif
 TEST ?=
 ifneq ($(TEST),)
 TARGET := $(TARGET)/$(TEST)
@@ -24,7 +29,7 @@ ifeq ($(SELFTEST),1)
 TARGET := $(TARGET)/selftest
 CFLAGS += -DOSLAB_SELFTEST
 endif
-CFLAGS += -I$(TARGET)/user -Isrc/user
+CFLAGS += -I$(TARGET)/user -Isrc/user -DQEMU_HARTS=$(CPUNUM)
 USER_CFLAGS = $(CFLAGS) -msmall-data-limit=0
 ifeq ($(PLATFORM),vf2)
 CFLAGS += -DVISIONFIVE2

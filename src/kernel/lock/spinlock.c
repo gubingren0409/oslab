@@ -16,7 +16,7 @@ void push_off(void)
     intr_off();
     cpu_t *cpu = mycpu();
     if (cpu->noff == 0)
-        cpu->origin = old;
+        cpu->intena = old;
     cpu->noff++;
 }
 
@@ -27,7 +27,7 @@ void pop_off(void)
     assert(intr_get() == 0, "push_off: 1\n"); // 确保此时中断是关闭的
     assert(cpu->noff >= 1, "push_off: 2\n");  // 确保push和pop的对应
     cpu->noff--;
-    if (cpu->noff == 0 && cpu->origin == 1) // 只有所有push操作都被抵消且原来状态是开着时
+    if (cpu->noff == 0 && cpu->intena == 1) // 只有所有push操作都被抵消且原来状态是开着时
         intr_on();
 }
 

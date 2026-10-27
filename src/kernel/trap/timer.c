@@ -46,6 +46,7 @@ void timer_update(void)
 
     spinlock_acquire(&system_timer.lk);
     system_timer.ticks++;
+    proc_wakeup(&system_timer);
     spinlock_release(&system_timer.lk);
 }
 
@@ -59,4 +60,13 @@ uint64 timer_get_ticks(void)
     spinlock_release(&system_timer.lk);
 
     return ticks;
+}
+
+void timer_wait(uint64 ntick)
+{
+    spinlock_acquire(&system_timer.lk);
+    uint64 start = system_timer.ticks;
+    while (system_timer.ticks - start < ntick)
+        proc_sleep(&system_timer, &system_timer.lk);
+    spinlock_release(&system_timer.lk);
 }

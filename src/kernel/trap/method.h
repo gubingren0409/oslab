@@ -12,6 +12,7 @@ void timer_rearm(void);
 void timer_create(void);
 void timer_update(void);
 uint64 timer_get_ticks(void);
+void timer_wait(uint64 ntick);
 
 // 内核态trap初始化与处理
 void trap_kernel_init(void);

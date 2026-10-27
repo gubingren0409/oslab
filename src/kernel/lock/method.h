@@ -1,4 +1,8 @@
 #pragma once
+void sleeplock_init(sleeplock_t *lk, char *name);
+bool sleeplock_holding(sleeplock_t *lk);
+void sleeplock_acquire(sleeplock_t *lk);
+void sleeplock_release(sleeplock_t *lk);
 
 /* spinlock.c: 中断开关与自旋锁 */
 

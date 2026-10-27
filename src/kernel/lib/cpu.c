@@ -18,5 +18,8 @@ int mycpuid(void)
 
 proc_t *myproc(void)
 {
-    return mycpu()->proc;
+    push_off();
+    proc_t *p = mycpu()->proc;
+    pop_off();
+    return p;
 }

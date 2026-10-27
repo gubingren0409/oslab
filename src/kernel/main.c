@@ -25,6 +25,7 @@ void main(void)
         memory_selftest();
 #endif
         kvm_init();
+        proc_init();
         trap_kernel_init();
 
         __sync_synchronize();
@@ -64,10 +65,9 @@ void main(void)
     timer_init();
     intr_on();
 
-    // Lab5 由实际启动 hart 创建唯一用户进程。
+    // 首进程仅由启动 hart 发布；所有 hart 都进入调度器。
     if (hartid == boot_hartid)
         proc_make_first();
 
-    while (1)
-        asm volatile("wfi");
+    proc_scheduler();
 }

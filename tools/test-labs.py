@@ -14,6 +14,8 @@ def run_image(test, marker, harts=2, selftest=False, timeout=12):
     subprocess.run(["make", "-j2", "build", *options], cwd=ROOT, check=True,
                    stdout=subprocess.DEVNULL)
     target = ROOT / "target" / "qemu" / test
+    if harts != 2:
+        target = ROOT / "target" / "qemu" / f"hart{harts}" / test
     if selftest:
         target /= "selftest"
     command = ["qemu-system-riscv64", "-machine", "virt", "-bios", "default",
@@ -39,4 +41,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("lab", choices=["lab5", "lab6"])
     arguments = parser.parse_args()
-    run_image(arguments.lab, arguments.lab.upper() + "_PASS", selftest=True)
+    if arguments.lab == "lab5":
+        run_image("lab5", "LAB5_PASS", selftest=True)
+    else:
+        for harts in (1, 2):
+            text = run_image("lab6", "LAB6_PASS", harts, selftest=True)
+            assert text.index("LAB6_RUNNABLE_WHILE_SLEEP") < text.index("LAB6_SLEEP_WAKE"), text
+            text = run_image("lab6_fork", "LAB6_FORK_PASS", harts, timeout=6)
+            for level, expected in ((1, 1), (2, 2), (3, 4)):
+                assert text.count(f"level-{level}!") == expected, text
+            run_image("lab6_slots", "LAB6_SLOTS_PASS", harts, timeout=6)
+            run_image("lab6_locks", "LAB6_LOCKS_PASS", harts, selftest=True, timeout=4)
+            run_image("lab6_initexit", "LAB6_INITEXIT_PASS", harts, timeout=3)

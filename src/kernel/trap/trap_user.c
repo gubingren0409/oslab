@@ -46,13 +46,8 @@ static __attribute__((noreturn)) void user_fault_stop(proc_t *proc,
     printf("pid = %d, scause = %x, sepc = %x, stval = %x\n",
            proc->pid, scause, sepc, stval);
 
-    // Lab4尚无调度器：撤下故障进程并让本hart停在可处理中断的内核循环。
-    // 这样页错误不会重放，也不会把整个内核带入panic。
-    mycpu()->proc = NULL;
-    __sync_synchronize();
-    intr_on();
-    while (1)
-        asm volatile("wfi");
+    // 与显式 exit 使用同一路径，父进程仍能 wait 回收，其他进程继续调度。
+    proc_exit(-1);
 }
 
 // 在user_vector切回内核页表后处理用户态trap。
@@ -80,7 +75,10 @@ void trap_user_handler(void)
     if (scause & SCAUSE_INTERRUPT)
     {
         if (cause == 5)
+        {
             timer_interrupt_handler();
+            proc_yield();
+        }
         else if (cause == 9)
             external_interrupt_handler();
         else
@@ -90,6 +88,7 @@ void trap_user_handler(void)
     {
         // ecall自身不会自动前进sepc；必须跳过它，避免返回后重复调用。
         proc->tf->user_to_kern_epc = sepc + 4;
+        intr_on();
         syscall();
     }
     else if (cause == 13 || cause == 15)
@@ -117,7 +116,7 @@ void trap_user_return(void)
     proc_t *proc = myproc();
     assert(proc != NULL && proc->pgtbl != NULL && proc->tf != NULL,
            "trap_user_return: invalid process");
-    assert(proc->kstack == KSTACK(0),
+    assert(proc->kstack <= KSTACK(0) && proc->kstack >= KSTACK(N_PROC - 1),
            "trap_user_return: invalid kernel stack");
 
     uint64 user_vector_offset = (uint64)user_vector - (uint64)trampoline;
@@ -129,6 +128,8 @@ void trap_user_return(void)
     proc->tf->user_to_kern_sp = proc->kstack + PGSIZE;
     proc->tf->user_to_kern_trapvector = (uint64)trap_user_handler;
     proc->tf->user_to_kern_hartid = (uint64)mycpuid();
+    // 同一个用户进程可在不同 hart 上首次执行刚复制的指令。
+    asm volatile("fence.i" ::: "memory");
 
     w_stvec(TRAMPOLINE + user_vector_offset);
     w_sepc(proc->tf->user_to_kern_epc);

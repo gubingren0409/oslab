@@ -49,7 +49,7 @@ kernel_vector:
         ld ra, 0(sp)
         ld sp, 8(sp)
         ld gp, 16(sp)
-        ld tp, 24(sp)
+        # 进程可能已经迁移；tp必须保留当前hart，而不是恢复旧hart编号。
         ld t0, 32(sp)
         ld t1, 40(sp)
         ld t2, 48(sp)

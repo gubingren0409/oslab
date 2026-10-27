@@ -8,3 +8,11 @@ typedef struct spinlock
     char *name; // 锁的名字
     int cpuid;  // 持有该锁的CPU
 } spinlock_t;
+
+typedef struct sleeplock
+{
+    spinlock_t lock;
+    bool locked;
+    int pid;
+    char *name;
+} sleeplock_t;

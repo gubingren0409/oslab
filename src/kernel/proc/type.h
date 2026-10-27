@@ -1,5 +1,9 @@
 #pragma once
 #include "../arch/type.h"
+#include "../lock/type.h"
+#define N_PROC 32
+
+enum proc_state { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // 同优先级的上下文
 typedef struct context
@@ -78,6 +82,12 @@ typedef uint64 *pgtbl_t;
 typedef struct proc
 {
     int pid; // 标识符
+    char name[16];
+    spinlock_t lk;
+    enum proc_state state;
+    struct proc *parent;
+    int exit_code;
+    void *sleep_space;
 
     pgtbl_t pgtbl;       // 用户态页表
     uint64 heap_top;     // 用户堆顶(以字节为单位)
