@@ -411,6 +411,14 @@ void kvm_init(void)
                     PGSIZE, PTE_R | PTE_X) < 0)
         goto fail;
 
+#ifdef VISIONFIVE2
+    if (vm_mappages(candidate, VF2_I2C5_BASE, VF2_I2C5_BASE, PGSIZE,
+                    PTE_R | PTE_W) < 0 ||
+        vm_mappages(candidate, VF2_SYSCRG_BASE, VF2_SYSCRG_BASE, PGSIZE,
+                    PTE_R | PTE_W) < 0)
+        goto fail;
+#endif
+
     for (int i = 0; i < N_PROC; i++)
     {
         stack_pages[i] = (uint64)pmem_alloc(true);
