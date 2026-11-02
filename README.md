@@ -3,7 +3,7 @@
 - 学生：谷秉仁
 - 实验分支：`lab-6`
 - 课程框架：`course/lab6@7effc117`，在本地 Lab5 实现之上增量接入。
-- 当前状态：Spec、代码和回归用例已实现；尚未在 VMware 中编译与运行，不能计为验收通过。
+- 当前状态：VMware 单核、双核 10 项回归和双平台构建已通过，VF2 实板运行验收正在进行。
 
 ## 实验要求
 
@@ -55,7 +55,7 @@ Lab5与Lab6分别保存独立分支。
 target/qemu/hart1，避免改变CPUNUM后误用旧对象。
 VF2仍用物理hart1至4、32位UART、硬件A/D和Image头。
 共享tick沿用Lab5的boot_hartid策略，避免VF2没有hart0与旧文本要求冲突。
-真实开发板验收仍待设备、固件和内存布局确认。
+已接入 VF2 v1.3B、4GB，并确认 OpenSBI 1.2、U-Boot、DTB 和内存布局。
 
 ## 回归用例
 
@@ -67,11 +67,18 @@ VF2仍用物理hart1至4、32位UART、硬件A/D和Image头。
 其他用例检查两次fork输出1/2/4次、31个子槽耗尽后复用、首进程退出后子进程继续、
 睡眠锁竞争和跨睡眠保持互斥。测试私有调用63只存在于SELFTEST镜像，不进入正式ABI。
 
-所有测试现阶段均未执行，不记录预期结果为实际通过。
+在既定 VMware 环境中运行 tools/test-labs.py lab6，以下各项在单核和双核均通过，
+共 10 项：基础进程与内存隔离、fork 输出计数、进程槽耗尽与复用、睡眠锁竞争、
+首进程退出后其余进程继续运行。SELFTEST 用例另通过页表回滚、mmap 节点并发回收、
+逐核 timer 和共享 tick 检查。
+
+默认 QEMU/VF2 镜像构建成功；5 个 VF2 测试镜像已构建并检查 ELF/Image。
+默认 VF2 入口为 0x40200000，Image 的 text_offset=0x200000，image_size=65536。
+实板结果须以实际串口日志补录，不用 QEMU 结果代替。
 
 ## 复现命令
 
-恢复VMware服务并确认SSH和共享目录后，在Ubuntu中执行：
+在 VMware Ubuntu 中执行：
 
 ```bash
 cd /home/oslab/lab/oslab
@@ -79,6 +86,7 @@ make clean
 make -j2 build
 python3 tools/test-labs.py lab6
 make -j2 PLATFORM=vf2
+python3 tools/check-vf2-image.py target/vf2/kernel/kernel-vf2
 make -j2 PLATFORM=qemu
 make debug
 ```
@@ -86,8 +94,5 @@ make debug
 默认用户程序fork一个子进程，子sleep(30)后exit(1234)，父wait并打印退出码。
 完整验收还须检查ELF入口、Image头、单/双核日志、UART，以及VF2实板。
 
-## 当前阻塞
-
-VMware Authorization Service已停止，管理员服务恢复的UAC操作返回“操作已被用户取消”。
-虚拟机未启动且SSH主机名无法解析，构建与运行尚未进行。
-需要在Windows管理员PowerShell启动VMAuthdService，随后继续VMware验证。
+QEMU 原始日志位于 E:\oslab\board-setup\logs\lab6-qemu-*.log。
+开发板镜像已通过串口安装到 TF 卡的 /boot/oslab，原 Ubuntu 引导配置保留。
