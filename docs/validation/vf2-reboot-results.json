@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-02",
+  "status": "awaiting_spi_update_approval",
+  "kernel_source_commits": {"lab5": "e08b6fb", "lab6": "0c50d0e"},
+  "build_environment": "Original VMware Ubuntu 22.04.5, GCC 11.4, binutils 2.38, QEMU 5.1, OpenSBI 0.7",
+  "qemu": {"lab5_dual_selftest": "passed", "lab6_single_and_dual_cases_passed": 10},
+  "board": {
+    "model": "StarFive VisionFive 2 v1.3B, 4GB",
+    "boot_mode": "SDIO 0/1",
+    "pmic_power_register": 36,
+    "lab6_selftest_reboot_to_uboot": "passed",
+    "lab6_production_reboot_to_uboot": "passed",
+    "panic_recovery": "incomplete: PMIC reset reached BootROM, then SDIO BOOT fail",
+    "updated_images_sha256_verified_on_tf": 9,
+    "continuous_13_case_software_reset_suite": "not_run"
+  },
+  "spi": {
+    "action": "read_only_backup_and_prepare",
+    "programmed": false,
+    "backup_bytes": 16777216,
+    "backup_verified_on_board_and_host": true,
+    "original_sha256": "0beea703af950b3d1dbf871ba63675d2aa663a9cf0eaf8e9b4524733befbb5dc",
+    "expected_updated_sha256": "53b38327f58663c594443769f544c443def76f055eaeced036df55e6a0ca54d1",
+    "source": "Same firmware as current official Ubuntu 24.04.3 VF2 6.0 TF image",
+    "source_image_sha256": "1888c3237dba1e47161d7e1a4a3b73a5714a3bda2064cbb960f844289585bff6",
+    "environment_preserved_by_plan": true
+  },
+  "logs": [
+    "board-setup/logs/reset-first-probe.log",
+    "board-setup/logs/reset-first-reboot.log",
+    "board-setup/logs/reset-production.log",
+    "board-setup/logs/reset-panic.log",
+    "board-setup/logs/reset-images-installed.txt",
+    "board-setup/logs/spi-prepare.log"
+  ]
+}
