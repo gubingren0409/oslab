@@ -30,7 +30,15 @@ class Console:
         with LOG.open("rb") as stream:
             stream.seek(mark)
             text = stream.read().decode("utf-8", errors="replace")
-        return re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text).replace("\r", "")
+        text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text).replace("\r", "")
+        clean = []
+        for char in text:
+            if char == "\b":
+                if clean and clean[-1] != "\n":
+                    clean.pop()
+            elif char != "\x07":
+                clean.append(char)
+        return "".join(clean)
 
     def send(self, text, enter=True):
         subprocess.run(["tmux", "send-keys", "-t", SESSION, "-l", text], check=True)
