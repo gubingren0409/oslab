@@ -73,7 +73,7 @@ VF2仍用物理hart1至4、32位UART、硬件A/D和Image头。
 逐核 timer 和共享 tick 检查。
 
 默认 QEMU/VF2 镜像构建成功；5 个 VF2 测试镜像已构建并检查 ELF/Image。
-默认 VF2 入口为 0x40200000，Image 的 text_offset=0x200000，image_size=65536。
+默认 VF2 入口为 0x40200000，Image 的 text_offset=0x200000；重启修复版 image_size=69632。
 VF2 基础用例已实际输出 LAB6_PASS：启动 hart=1，计算 hart 1～4 各启动一次；
 父子地址空间隔离、wait 重试、用户异常隔离和睡眠唤醒通过。
 子进程 pid3 的零地址 load page fault 是故意触发的测试，父进程继续运行并通过验收。
@@ -117,3 +117,12 @@ ELF入口、Image头、单/双核日志、UART及VF2上述实板场景均已核�
 
 QEMU 原始日志位于 E:\oslab\board-setup\logs\lab6-qemu-*.log。
 开发板镜像已通过串口安装到 TF 卡的 /boot/oslab，原 Ubuntu 引导配置保留。
+
+## 软件重启补充
+
+重启前恢复 PMIC 使用的 I²C5，正常运行和 panic 循环均接受串口 Ctrl+R。
+Lab6 正式镜像和 SELFTEST 镜像已在实板软件重启返回 U-Boot，原 VMware 环境的
+10 项 QEMU 回归通过。SDIO BootROM 偶发读卡失败仍需处理；SPI 同版本固件更新
+已完成只读备份与预检，尚未写入，连续 13 项自动切换与 panic 完整恢复待验收。
+机制、命令和当前证据见 [软件重启说明](docs/vf2-software-reboot.md)及
+[结构化记录](docs/validation/vf2-reboot-results.json)。
