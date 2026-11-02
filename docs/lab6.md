@@ -3,7 +3,7 @@
 - 学生：谷秉仁
 - 实验分支：`lab-6`
 - 课程框架：`course/lab6@7effc117`，在本地 Lab5 实现之上增量接入。
-- 当前状态：VMware 单核、双核 10 项回归和双平台构建已通过，VF2 实板运行验收正在进行。
+- 当前状态：VMware 单核、双核回归、双平台构建、VF2 专项及启动 hart 1～4 实板验收均已通过。
 
 ## 实验要求
 
@@ -74,7 +74,27 @@ VF2仍用物理hart1至4、32位UART、硬件A/D和Image头。
 
 默认 QEMU/VF2 镜像构建成功；5 个 VF2 测试镜像已构建并检查 ELF/Image。
 默认 VF2 入口为 0x40200000，Image 的 text_offset=0x200000，image_size=65536。
-实板结果须以实际串口日志补录，不用 QEMU 结果代替。
+VF2 基础用例已实际输出 LAB6_PASS：启动 hart=1，计算 hart 1～4 各启动一次；
+父子地址空间隔离、wait 重试、用户异常隔离和睡眠唤醒通过。
+子进程 pid3 的零地址 load page fault 是故意触发的测试，父进程继续运行并通过验收。
+MEMORY_SELFTEST_PASS、MMAP_CONCURRENCY_PASS harts=4、逐核 timer 和共享 tick 均通过；
+interval=400000，20 个共享 tick 的 time 差为 8007371。
+串口输入 A 返回 UART_SELFTEST_PASS irq=32 hart=4。
+日志位于 E:\oslab\board-setup\logs\lab6-direct.log 和 lab6-direct.json。
+实板专项结果如下；每次运行均通过内存、并发节点池、四核 timer 与 UART 检查。
+
+| VF2 场景 | 实际结果 |
+| --- | --- |
+| 基础用例直接 booti，启动 hart1 | LAB6_PASS |
+| 基础用例经测试加载器分别选择 hart1、2、3、4 | 4 种均为 LAB6_PASS |
+| 两次 fork 的输出计数 | 1、2、4 次，LAB6_FORK_PASS |
+| 31 个子槽耗尽后回收、复用 | LAB6_SLOTS_PASS |
+| 四核睡眠锁竞争与互斥 | LAB6_LOCKS_PASS |
+| 首进程退出、其他进程继续运行 | LAB6_INITEXIT_PASS |
+
+共 9 次 VF2 运行，分场景 JSON 和串口日志位于 board-setup/logs。
+另在 VMware 的默认双核 QEMU 镜像验证演示程序：子进程 sleep(30) 后退出，
+父进程打印 parent: child exit status=1234。该运行未启用 SELFTEST。
 
 ## 复现命令
 
@@ -92,7 +112,7 @@ make debug
 ```
 
 默认用户程序fork一个子进程，子sleep(30)后exit(1234)，父wait并打印退出码。
-完整验收还须检查ELF入口、Image头、单/双核日志、UART，以及VF2实板。
+ELF入口、Image头、单/双核日志、UART及VF2上述实板场景均已核实。
 
 QEMU 原始日志位于 E:\oslab\board-setup\logs\lab6-qemu-*.log。
 开发板镜像已通过串口安装到 TF 卡的 /boot/oslab，原 Ubuntu 引导配置保留。
