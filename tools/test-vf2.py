@@ -7,7 +7,7 @@ import re
 import subprocess
 import time
 
-from vf2_console import Console, PROMPT, SETUP
+from vf2_console import Console, SETUP
 
 DTB = "/dtbs/6.12.5-starfive/starfive/jh7110-starfive-visionfive-2-v1.3b.dtb"
 MARKERS = {
@@ -90,10 +90,12 @@ def run(test, boot_hart=None, reset=False):
         finally:
             (SETUP / f"logs/{label}-reset.log").write_text(console.read(mark))
         print("Returned to U-Boot", flush=True)
+        result["software_reset"] = "passed"
+        (SETUP / f"logs/{label}.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
 def suite(resume=False):
-    """Wait for physical resets; automatically load the remaining test Images."""
+    """Run every Image with verified software cold resets, then restore Ubuntu."""
     console = Console()
     (SETUP / "logs/vf2-suite.pid").write_text(str(os.getpid()))
     cases = [("lab5", None), ("lab6", None)]
@@ -103,37 +105,28 @@ def suite(resume=False):
     cases += [("lab5", hart) for hart in range(2, 5)]
     result_path = SETUP / "logs/vf2-suite-results.json"
     results = json.loads(result_path.read_text()) if resume and result_path.exists() else []
+    images = json.loads((SETUP / "artifacts/board-images-manifest.json").read_text())
+    results = [item for item in results if item.get("software_reset") == "passed" and
+               item.get("image_sha256") == images[item["case"] + "-selftest.bin"]["sha256"]]
     done = {(item["case"], item["boot"]) for item in results if item["status"] == "passed"}
-    # Include a reset already pressed after the previous validated UART probe.
-    raw = (SETUP / "logs/vf2-serial-boot.log").read_bytes()
-    mark = raw.rfind(b"UART_SELFTEST_PASS irq=32")
-    if mark < 0:
-        mark = console.mark()
-    ready = bool(re.search(PROMPT + r"\Z", console.read(max(0, console.mark() - 4096))))
+    console.reboot_uboot()
     for number, (test, hart) in enumerate(cases, 1):
         if (test, hart or "direct") in done:
             continue
-        message = f"PASS / HOLD RESET 4s: next {number}/{len(cases)} {test} hart={hart or 'direct'}"
-        subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000", message],
-                       check=True)
-        print(message, flush=True)
-        if not ready:
-            console.wait_uboot(mark, timeout=900)
-        ready = False
         subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "1000",
-                        f"RUNNING {test} hart={hart or 'direct'}"], check=True)
-        run(test, hart)
-        results.append({"case": test, "boot": hart or "direct", "status": "passed"})
+                        f"AUTO {number}/{len(cases)} {test} hart={hart or 'direct'}"], check=True)
+        run(test, hart, reset=True)
+        results.append({"case": test, "boot": hart or "direct", "status": "passed",
+                        "software_reset": "passed",
+                        "image_sha256": images[test + "-selftest.bin"]["sha256"]})
         result_path.write_text(json.dumps(results, indent=2) + "\n")
-        mark = console.mark()
-    message = "ALL TESTS PASS / HOLD RESET 4s once more to start Ubuntu"
+    message = "ALL TESTS PASS / starting Ubuntu automatically"
     subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000", message],
                    check=True)
     print(message, flush=True)
-    console.wait(mark, r"U-Boot SPL 2021\.10", timeout=900)
-    subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000",
-                    "STARTING UBUNTU - please WAIT, no RESET needed"], check=True)
-    console.wait(mark, r"(?m)^starfive login:\s*$", timeout=900)
+    mark = console.mark()
+    console.send("boot")
+    console.wait(mark, r"(?m)^starfive login:\s*$", timeout=180)
     console.send("user")
     console.wait(mark, r"(?m)^Password:\s*$", timeout=15)
     console.send("starfive")
@@ -152,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("case", choices=[*MARKERS, "suite"])
     parser.add_argument("--boot-hart", type=int, choices=range(1, 5))
     parser.add_argument("--reset", action="store_true",
-                        help="Request SBI SRST after passing (requires working PMIC reset)")
+                        help="Request a verified software cold reboot after passing")
     parser.add_argument("--resume", action="store_true", help="Resume recorded suite progress")
     args = parser.parse_args()
     if args.case == "suite":
