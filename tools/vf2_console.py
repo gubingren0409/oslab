@@ -78,7 +78,7 @@ class Console:
             if result:
                 if int(result.group(1)):
                     raise RuntimeError("Board command failed:\n" + text)
-                return text
+                return self.wait(mark, r"user@starfive:[^\n]*\$\s*\Z", timeout=5)
             time.sleep(0.1)
         self.key("C-c")
         raise RuntimeError("Board command timed out:\n" + self.read(mark)[-4000:])
@@ -112,6 +112,10 @@ class Console:
             text = self.read(mark)
             if re.search(PROMPT, text):
                 return text
+            if "VF2_REBOOT_FAIL" in text or "cannot read pmic power register" in text:
+                raise RuntimeError("Software reboot failed:\n" + text[-2000:])
+            if "BOOT fail" in text:
+                raise RuntimeError("BootROM failed to load from SDIO:\n" + text[-2000:])
             if "U-Boot 2021.10" in text or "Hit any key to stop autoboot" in text:
                 if time.monotonic() - last_space > 0.15:
                     self.key("C-c")
@@ -121,8 +125,27 @@ class Console:
             time.sleep(0.05)
         raise RuntimeError("U-Boot prompt not reached:\n" + self.read(mark)[-4000:])
 
+    def request_reboot(self):
+        """Reboot the running Ubuntu or teaching kernel; return the log offset."""
+        tail = self.read(max(0, self.mark() - 4096))
+        linux = re.search(r"user@starfive:[^\n]*\$\s*\Z", tail)
+        if linux:
+            self.linux("sudo -p 'OSLAB_SUDO_PASSWORD:' -v")
+        mark = self.mark()
+        if linux:
+            self.send("sudo -n reboot")
+        else:
+            self.key("C-r")
+        return mark
+
+    def reboot_uboot(self, timeout=60):
+        tail = self.read(max(0, self.mark() - 4096))
+        if re.search(PROMPT + r"\Z", tail):
+            return tail
+        return self.wait_uboot(self.request_reboot(), timeout)
+
     def uboot(self, command, timeout=25):
-        if re.search(r"\b(?:saveenv|erase|mmc\s+write|sf\s+write)\b", command):
+        if re.search(r"\b(?:saveenv|erase|mmc\s+write|sf\s+(?:write|update))\b", command):
             raise ValueError("Persistent storage writes are outside this runner")
         mark = self.mark()
         self.send(command)
@@ -142,7 +165,4 @@ if __name__ == "__main__":
     elif args.action == "uboot":
         print(console.uboot(args.value))
     else:
-        console.linux("sudo -p 'OSLAB_SUDO_PASSWORD:' -v")
-        mark = console.mark()
-        console.send("sudo -n reboot")
-        print(console.wait_uboot(mark, timeout=60))
+        print(console.reboot_uboot())
