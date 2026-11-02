@@ -96,7 +96,8 @@ def suite(resume=False):
     """Wait for physical resets; automatically load the remaining test Images."""
     console = Console()
     (SETUP / "logs/vf2-suite.pid").write_text(str(os.getpid()))
-    cases = [(name, None) for name in
+    cases = [("lab5", None), ("lab6", None)]
+    cases += [(name, None) for name in
              ("lab6_locks", "lab6_fork", "lab6_slots", "lab6_initexit")]
     cases += [("lab6", hart) for hart in range(1, 5)]
     cases += [("lab5", hart) for hart in range(2, 5)]
