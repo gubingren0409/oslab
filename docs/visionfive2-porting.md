@@ -39,7 +39,8 @@ VF2产物是target/vf2/kernel/kernel-vf2.elf和kernel-vf2.bin。
 两平台的用户程序、内核对象和生成头文件均独立。
 VF2 bin前64字节为[RISC-V Image头](https://docs.kernel.org/arch/riscv/boot-image-header.html)，
 text_offset=0x200000，image_size包含BSS，不把128MiB分配池写入文件。
-使用现有OpenSBI/U-Boot及booti；不另行编译或刷写固件。
+实验内核使用现有OpenSBI/U-Boot及booti。板载SPI固件维护与软件重启状态见
+[软件重启说明](vf2-software-reboot.md)，当前已备份和预检，尚未写入SPI。
 
 ## 实板前置核实
 
@@ -60,7 +61,8 @@ load mmc <设备:分区> ${fdt_addr_r} <与板卡匹配的.dtb>
 booti ${kernel_addr_r} - ${fdt_addr_r}
 ```
 
-也可在实验室网络通过tftpboot临时加载。全过程不执行saveenv、不刷SPI、不写裸扇区。
+也可在实验室网络通过tftpboot临时加载。加载实验内核只写RAM，不执行saveenv或裸扇区写入；
+SPI固件维护是独立的备份、确认和校验流程。
 命令依据[U-Boot booti说明](https://docs.u-boot.org/en/latest/usage/cmd/booti.html)。
 
 ## 已核实的硬件布局
@@ -98,25 +100,23 @@ python3 tools/test-vf2.py suite
 ```
 
 脚本逐次验证加载大小、CRC32、实际启动hart及所有通过标志。
-看到PASS / HOLD RESET后按住板上Reset约4秒再松开；RUNNING时等待。
-最后一次复位不拦截U-Boot，自动启动并登录官方Ubuntu，核对TF卡内镜像校验值。
+更新后的suite逐项发送软件重启请求并验证返回U-Boot，最后自动启动并登录官方Ubuntu，
+核对TF卡内镜像校验值。此完整流程仍等待SPI启动配置完成后的实板验收；
+旧版PASS / HOLD RESET手动流程只属于此前的实验功能验收记录。
 如只需恢复同一批镜像的中断测试，可使用suite --resume。
 本工具验证已经准备的固定镜像；修改内核后应在对应实验分支用原VMware环境重新构建，
 更新本地manifest和TF卡镜像，不把Lab5测试程序与Lab6的系统调用ABI混合构建。
 
 ## 复位限制
 
-本次Lab5实板测试通过后，测试内核的SBI SRST冷重启停在
-pmic_ops: cannot read pmic power register。自动测试默认不请求软重启；
---reset只供已验证复位功能的固件使用。遇到此状态，按住板边Reset键超过3秒后松开，
-由串口脚本拦截U-Boot；不需要重新烧录TF卡。
-该错误发生在测试通过后的固件复位路径，不撤销已经取得的运行结果。
+此前验收的镜像在SBI SRST冷重启时出现PMIC读取失败。修复版在重启前恢复I²C5，
+已验证Lab6正式镜像和SELFTEST镜像软件重启返回U-Boot；QEMU回归通过。
 
-另一次物理复位在BootROM读卡时出现dwmci超时和BOOT fail，尚未进入实验内核；
-再次Reset后恢复，随后Lab5 hart4完整通过。原始记录保留在完整串口日志中。
-最终返回Ubuntu时再次出现相同错误，拔下Type-C电源、等待约5秒后重新供电即恢复。
-[官方启动模式说明](https://doc-en.rvspace.org/VisionFive2/Quick_Start_Guide/VisionFive2_SDK_QSG/boot_mode_settings.html)
-也记录SDIO启动可能偶发失败，并建议尝试重启；本次继续沿用课程的SDIO配置。
+独立的SDIO BootROM读卡超时仍可能出现。panic后的软件复位已进入BootROM，
+但一次仍停在BOOT fail，故尚未把panic恢复或连续自动切换记为通过。
+原SPI已完整备份，当前TF卡同版本官方固件已通过只读更新预检，等待写入确认。
+详细边界、证据和待办见[软件重启说明](vf2-software-reboot.md)及
+`docs/validation/vf2-reboot-results.json`。
 
 ## 测试后的恢复结果
 

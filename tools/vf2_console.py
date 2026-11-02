@@ -12,7 +12,9 @@ import time
 import uuid
 
 SETUP = Path(__file__).resolve().parents[2] / "board-setup"
-LOG = SETUP / "logs/vf2-serial-boot.log"
+# Capture on the guest's ext4 disk: byte-sized writes to HGFS can drop UART data.
+LOCAL_LOG = Path.home() / ".local/state/oslab/vf2-serial-boot.log"
+LOG = LOCAL_LOG if LOCAL_LOG.exists() else SETUP / "logs/vf2-serial-boot.log"
 SESSION = "vf2-serial"
 PROMPT = r"(?m)^(?:StarFive\s*#|=>)\s*$"
 
@@ -31,6 +33,8 @@ class Console:
             stream.seek(mark)
             text = stream.read().decode("utf-8", errors="replace")
         text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text).replace("\r", "")
+        if "\b" not in text:
+            return text.replace("\x07", "")
         clean = []
         for char in text:
             if char == "\b":
