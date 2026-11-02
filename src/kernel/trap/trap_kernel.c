@@ -149,6 +149,10 @@ void external_interrupt_handler()
 // 时钟中断处理 (当前内核的时钟源由OpenSBI设置)
 void timer_interrupt_handler()
 {
+#ifdef OSLAB_SELFTEST
+    extern void memory_selftest_timer_interrupt(void);
+    memory_selftest_timer_interrupt();
+#endif
     // 设置下一次时钟事件
     // 如果不设置, stimecmp会一直是一个过期的值, CPU处理完这次中断后会立刻再次响应同一个中断
 

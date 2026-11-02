@@ -22,6 +22,7 @@ void main(void)
         mmap_init();
 #ifdef OSLAB_SELFTEST
         extern void memory_selftest(void);
+        printf("SELFTEST_BOOT_HART=%d\n", (int)boot_hartid);
         memory_selftest();
 #endif
         kvm_init();
@@ -59,6 +60,10 @@ void main(void)
     // 所有入口和使能位就绪后才统一打开全局中断。
     intr_off();
     trap_kernel_inithart();
+#ifdef OSLAB_SELFTEST
+    extern void memory_selftest_hart(void);
+    memory_selftest_hart();
+#endif
     if (hartid == boot_hartid)
         uart_enable_rx_interrupt();
     timer_init();

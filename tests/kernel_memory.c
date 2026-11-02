@@ -1,8 +1,114 @@
 #include "src/kernel/mem/mod.h"
 #include "src/kernel/proc/mod.h"
+#include "src/kernel/trap/mod.h"
+#include "src/kernel/lib/mod.h"
 
 static void *held_pages[KERN_PAGES];
 static mmap_region_t *held_nodes[N_MMAP];
+static volatile int nodes_allocated, nodes_checked, nodes_freed, nodes_restored;
+static volatile uint64 timer_interrupts[NCPU];
+static uint64 first_timer_time[NCPU];
+
+// SELFTEST-only serial controls let the hardware runner check the PLIC RX path
+// and return to U-Boot between images without changing persistent boot settings.
+int memory_selftest_uart_control(int c)
+{
+    if (c == 'A')
+        printf("UART_SELFTEST_PASS irq=%d hart=%d\n", UART_IRQ, mycpuid());
+#ifdef VISIONFIVE2
+    if (c == 0x12)
+    {
+        printf("SELFTEST_REBOOT\n");
+        register uint64 a0 asm("a0") = 1; // SBI cold reboot
+        register uint64 a1 asm("a1") = 0; // no failure reason
+        register uint64 a6 asm("a6") = 0;
+        register uint64 a7 asm("a7") = 0x53525354; // SRST
+        asm volatile("ecall" : "+r"(a0), "+r"(a1) : "r"(a6), "r"(a7) : "memory");
+        printf("SELFTEST_REBOOT_FAIL error=%d\n", (int)a0);
+        return 1;
+    }
+#endif
+    return 0;
+}
+
+// Each real hart allocates and frees its own slice of the shared node pool.
+// The barriers let the boot hart check exhaustion, uniqueness and full recovery.
+void memory_selftest_hart(void)
+{
+    int active = NCPU - FIRST_HART;
+    int index = mycpuid() - FIRST_HART;
+    int begin = N_MMAP * index / active;
+    int end = N_MMAP * (index + 1) / active;
+    for (int i = begin; i < end; i++)
+        held_nodes[i] = mmap_region_alloc();
+    __sync_add_and_fetch(&nodes_allocated, 1);
+    while (nodes_allocated != active)
+        ;
+    __sync_synchronize();
+
+    if (mycpuid() == boot_hartid)
+    {
+        assert(mmap_region_alloc() == NULL, "test: concurrent node exhaustion");
+        for (int i = 0; i < N_MMAP; i++)
+        {
+            assert(held_nodes[i] != NULL, "test: concurrent node allocation");
+            for (int j = 0; j < i; j++)
+                assert(held_nodes[i] != held_nodes[j], "test: duplicate node ownership");
+        }
+        __sync_synchronize();
+        nodes_checked = 1;
+    }
+    while (!nodes_checked)
+        ;
+    __sync_synchronize();
+    for (int i = begin; i < end; i++)
+        mmap_region_free(held_nodes[i]);
+    __sync_add_and_fetch(&nodes_freed, 1);
+    while (nodes_freed != active)
+        ;
+    __sync_synchronize();
+
+    if (mycpuid() == boot_hartid)
+    {
+        for (int i = 0; i < N_MMAP; i++)
+        {
+            held_nodes[i] = mmap_region_alloc();
+            assert(held_nodes[i] != NULL, "test: concurrent node recovery");
+        }
+        assert(mmap_region_alloc() == NULL, "test: node pool cardinality");
+        for (int i = 0; i < N_MMAP; i++)
+            mmap_region_free(held_nodes[i]);
+        printf("MMAP_CONCURRENCY_PASS harts=%d\n", active);
+        __sync_synchronize();
+        nodes_restored = 1;
+    }
+    while (!nodes_restored)
+        ;
+    __sync_synchronize();
+}
+
+// Called on actual timer interrupts, before the shared tick is advanced.
+// Diagnostic output exists only in SELFTEST images.
+void memory_selftest_timer_interrupt(void)
+{
+    int hart = mycpuid();
+    uint64 count = __sync_add_and_fetch(&timer_interrupts[hart], 1);
+    if (count == 1)
+    {
+        first_timer_time[hart] = r_time();
+        printf("TIMER_HART_PASS hart=%d\n", hart);
+    }
+    if (hart != boot_hartid || count != 21)
+        return;
+    assert(timer_get_ticks() == 20, "test: shared ticks advance only once");
+    for (int id = FIRST_HART; id < NCPU; id++)
+        assert(timer_interrupts[id] >= 10, "test: every hart rearms its timer");
+    uint64 delta = r_time() - first_timer_time[hart];
+    assert(delta >= 20ul * INTERVAL && delta < 40ul * INTERVAL,
+           "test: timer interval progression");
+    printf("TIMER_SELFTEST_PASS ticks=20 interval=%d delta=%d\n",
+           (int)INTERVAL, (int)delta);
+}
 
 void memory_selftest(void)
 {
