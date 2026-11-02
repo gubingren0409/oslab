@@ -130,6 +130,9 @@ def suite(resume=False):
     subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000", message],
                    check=True)
     print(message, flush=True)
+    console.wait(mark, r"U-Boot SPL 2021\.10", timeout=900)
+    subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000",
+                    "STARTING UBUNTU - please WAIT, no RESET needed"], check=True)
     console.wait(mark, r"(?m)^starfive login:\s*$", timeout=900)
     console.send("user")
     console.wait(mark, r"(?m)^Password:\s*$", timeout=15)
@@ -138,6 +141,9 @@ def suite(resume=False):
     output = console.linux("uname -r; nproc; findmnt -n -o SOURCE,TARGET /; "
                            "cd /boot/oslab && sha256sum -c SHA256SUMS")
     (SETUP / "logs/ubuntu-restored.txt").write_text(output)
+    console.linux("cd ~")
+    subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "15000",
+                    "UBUNTU READY / ALL TESTS PASSED"], check=True)
     print("UBUNTU_RESTORED", flush=True)
 
 

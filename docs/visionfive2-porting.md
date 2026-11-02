@@ -114,6 +114,15 @@ pmic_ops: cannot read pmic power register。自动测试默认不请求软重启
 
 另一次物理复位在BootROM读卡时出现dwmci超时和BOOT fail，尚未进入实验内核；
 再次Reset后恢复，随后Lab5 hart4完整通过。原始记录保留在完整串口日志中。
+最终返回Ubuntu时再次出现相同错误，拔下Type-C电源、等待约5秒后重新供电即恢复。
+[官方启动模式说明](https://doc-en.rvspace.org/VisionFive2/Quick_Start_Guide/VisionFive2_SDK_QSG/boot_mode_settings.html)
+也记录SDIO启动可能偶发失败，并建议尝试重启；本次继续沿用课程的SDIO配置。
+
+## 测试后的恢复结果
+
+已恢复并登录原官方Ubuntu，uname为6.12.5-starfive，nproc为4，根分区为
+/dev/mmcblk1p4。/boot/oslab中9个文件均再次通过SHA-256校验；
+Ubuntu原有默认引导保留。恢复命令输出位于board-setup/logs/ubuntu-restored.txt。
 
 ## 验收范围
 

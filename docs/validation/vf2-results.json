@@ -337,6 +337,15 @@
   ],
   "known_issues": [
     "SBI SRST cold reboot stopped at pmic_ops: cannot read pmic power register; use physical Reset.",
-    "One physical reset before lab5-hart4 stopped at BootROM dwmci timeout / BOOT fail; retrying Reset recovered boot."
-  ]
+    "A physical reset before lab5-hart4 stopped at BootROM dwmci timeout / BOOT fail; retrying Reset recovered boot.",
+    "The same BootROM error recurred while returning to Ubuntu; removing Type-C power, waiting and reconnecting recovered boot."
+  ],
+  "ubuntu_restoration": {
+    "status": "passed",
+    "kernel": "6.12.5-starfive",
+    "cpus": 4,
+    "root_device": "/dev/mmcblk1p4",
+    "sha256_files_verified": 9,
+    "log": "board-setup/logs/ubuntu-restored.txt"
+  }
 }
