@@ -73,6 +73,12 @@ void uart_intr(void)
 		if (c == -1)
 			break;
 
+#ifdef OSLAB_SELFTEST
+		extern int memory_selftest_uart_control(int c);
+		if (memory_selftest_uart_control(c))
+			continue;
+#endif
+
 		if (c == '\r' || c == '\n')
 		{
 			uart_putc_sync('\r');

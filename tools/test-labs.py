@@ -33,6 +33,8 @@ def run_image(test, marker, harts=2, selftest=False, timeout=12):
     assert marker in text and "panic:" not in text and "_FAIL" not in text, text
     if selftest:
         assert "MEMORY_SELFTEST_PASS" in text, text
+        assert f"MMAP_CONCURRENCY_PASS harts={harts}" in text, text
+        assert "TIMER_SELFTEST_PASS" in text, text
     print(f"PASS {test}, harts={harts}, selftest={selftest}")
     return text
 
