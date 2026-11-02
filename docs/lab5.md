@@ -3,7 +3,7 @@
 - 学生：谷秉仁
 - 实验分支：`lab-5`
 - 课程框架：`course/lab5@4a0f4b72`
-- 当前状态：Spec 与代码已实现，VMware 运行验收待恢复；VisionFive 2 实板验收待接入设备。
+- 当前状态：VMware 双平台构建、QEMU 回归及 VF2 四核实板基础验收已通过。
 
 ## 实验要求
 
@@ -47,8 +47,10 @@ DRAM 起点 0x40000000，内核起点 0x40200000，管理窗口结束 0x48200000
 timebase 4MHz，100ms interval 为 400000；叶项预置 A/D，非叶只带 V。
 
 开发板继承固件串口配置，产出带 64 字节 Image 头的 kernel-vf2.bin。
-真正启动前仍须用匹配板卡 DTB 与 bdinfo 核实固件、DRAM 保留区和 DTB 所在位置。
-当前没有实板日志，不能把构建适配计为实板验收通过。
+实板型号为 VisionFive 2 v1.3B、4GB，OpenSBI 1.2、U-Boot 2021.10。
+已核实 bdinfo：U-Boot 重定位至 0xf7efd000，其控制 DTB 位于 0xf76df9b0；
+固件保留 0x40000000～0x4003ffff，与内核管理窗口不重叠。
+匹配板卡的 DTB 临时加载到 0x4a000000，位于管理窗口外。
 
 ## 可复现检查
 
@@ -60,6 +62,7 @@ make clean
 make -j2 build
 python3 tools/test-labs.py lab5
 make -j2 PLATFORM=vf2
+python3 tools/check-vf2-image.py target/vf2/kernel/kernel-vf2
 make -j2 PLATFORM=qemu
 make debug
 ```
@@ -69,10 +72,23 @@ booti。禁止用 QEMU 运行 VF2 镜像。实板加载步骤见 docs/visionfive
 
 ## 测试覆盖与当前结果
 
-已加入可重复测试，尚未运行：
+已实际通过的内存与用户态测试包括：
 跨页用户复制、字符串长度与读写权限、特殊映射保护、独立页表复制、
 内核页耗尽回滚、mmap 节点耗尽回滚、跨区间解除、堆伸缩、真实多页栈缺页、
 非法系统调用和高 32 位非零的长度参数。
 
-当前 Windows 的 VMware Authorization Service 停止，服务启动的 UAC 操作被取消，
-虚拟机没有启动；尚未在其他环境替代编译。恢复服务并通过上述检查后再记录实际结果。
+QEMU 双核输出 MEMORY_SELFTEST_PASS、MMAP_CONCURRENCY_PASS harts=2、LAB5_PASS，
+两个 hart 的定时器均通过；共享 tick 只由实际启动 hart 更新。
+默认 QEMU/VF2 镜像及切换平台后的增量构建均成功，VF2 ELF 入口、Image 头、BSS、
+各核栈和分配池边界通过自动检查。
+
+VF2 使用串口传输镜像并核对 SHA-256；U-Boot 每次加载后检查字节数和 CRC32，
+随后执行 booti 0x40200000 - 0x4a000000。实际启动 hart=1，计算 hart 1～4 各启动一次。
+实板输出 MEMORY_SELFTEST_PASS、MMAP_CONCURRENCY_PASS harts=4、LAB5_PASS，
+四核均收到定时器中断；20 个共享 tick 的 time 差为 8015375，interval=400000。
+输入 A 得到 UART_SELFTEST_PASS irq=32 hart=4，确认 Sv39 下串口接收和 PLIC 正常。
+
+记录位于 E:\oslab\board-setup\logs\lab5-direct.log 和 lab5-direct.json。
+本次已验证的启动 hart 为 1；其余启动 hart 的独立实板测试仍需补充。
+实验内核通过后，测试用 SBI SRST 冷重启遇到固件 PMIC 读取失败，需板上 Reset 恢复。
+此问题单独记录，不计入已通过的内存、用户程序和中断结果。

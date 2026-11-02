@@ -2,9 +2,10 @@
 
 ## 当前状态
 
-课程lab5@4a0f4b72已正式要求VisionFive 2支持，本项目接入了该平台的源码和构建流程，
-Lab6在此基础上扩展多进程。当前没有实板串口日志，VMware服务恢复前也没有双平台
-构建结果，不能把已填写常量当作硬件验收完成。
+课程lab5@4a0f4b72已正式要求VisionFive 2支持，Lab6在此基础上扩展多进程。
+Lab5/Lab6已在既定VMware环境完成双平台构建；Lab5 QEMU双核和Lab6单/双核共10项
+回归均通过。VF2 v1.3B、4GB已完成官方Ubuntu启动和Lab5四核实板基础验收。
+Lab5实际启动hart为1，其他启动hart及Lab6实板测试尚待补齐，详见各实验报告。
 
 ## 平台参数
 
@@ -60,10 +61,35 @@ booti ${kernel_addr_r} - ${fdt_addr_r}
 也可在实验室网络通过tftpboot临时加载。全过程不执行saveenv、不刷SPI、不写裸扇区。
 命令依据[U-Boot booti说明](https://docs.u-boot.org/en/latest/usage/cmd/booti.html)。
 
-## 必须补齐的实际结果
+## 已核实的硬件布局
 
-- 各有效hart仅启动一次，辅助入口不再次清BSS；
-- 任意有效启动hart下UART、timer和共享tick正确；
-- Sv39启用后UART/PLIC仍正常，内核栈guard有效；
-- Lab5复制、堆栈、mmap与系统调用在真实开发板通过；
-- Lab6多进程及睡眠唤醒在实体板重新验证。
+板上DRAM为0x40000000～0x13fffffff。OpenSBI保留0x40000000～0x4003ffff，
+U-Boot relocaddr=0xf7efd000、控制DTB=0xf76df9b0，均不占用内核管理窗口。
+实际DTB的UART0为32位访问、reg-shift=2、IRQ32，timebase=4000000，
+hart0被禁用，S-mode PLIC context为2*hart，与平台常量一致。
+原始核实记录为E:\oslab\board-setup\logs\uboot-preflight.txt。
+
+没有网线时，使用VMware内的tools/vf2_console.py，通过现有minicom/tmux会话传输文件；
+不同时开启第二个串口读取进程。文件经SHA-256校验后另存到/boot/oslab，
+不改写Ubuntu原有extlinux配置。
+
+本板已验证的加载设备为mmc 1:3，DTB为
+/dtbs/6.12.5-starfive/starfive/jh7110-starfive-visionfive-2-v1.3b.dtb，
+加载地址为0x4a000000。每次load必须成功并核对字节数和CRC32，再执行booti。
+
+tools/test-vf2.py根据本机board-setup/artifacts/board-images-manifest.json检查镜像；
+默认在测试完成后保留实验内核运行。--boot-hart选项通过仅供测试的HSM加载器选择
+启动hart；加载器位于0x49000000，位于内核管理窗口外，尚待本板实际验证。
+
+## 复位限制
+
+本次Lab5实板测试通过后，测试内核的SBI SRST冷重启停在
+pmic_ops: cannot read pmic power register。自动测试默认不请求软重启；
+--reset只供已验证复位功能的固件使用。遇到此状态，按住板边Reset键超过3秒后松开，
+由串口脚本拦截U-Boot；不需要重新烧录TF卡。
+该错误发生在测试通过后的固件复位路径，不撤销已经取得的运行结果。
+
+## 验收范围
+
+- Lab5已验证：hart1启动、四核各启动一次、内存与用户程序测试、并发节点池、逐核timer、共享tick及Sv39下UART/PLIC。
+- 待补：其余启动hart的独立测试、Lab6各实板用例；未执行的检查不记为通过。

@@ -1,6 +1,6 @@
 # 课程发布仓库状态
 
-检查日期：2026-10-27（America/Los_Angeles）。
+检查日期：2026-11-01（America/Los_Angeles）。
 
 ## 仓库连接
 
@@ -16,8 +16,8 @@
 | 实验 | 发布依据 | 个人状态 |
 | --- | --- | --- |
 | Lab0～Lab4 | 原有任务分支和课件 | 已完成并通过前次VMware验收，历史分支保留 |
-| Lab5 | lab5@4a0f4b72；master新增Lab5 PDF | Spec、代码与测试已实现；VMware与实板验收待完成 |
-| Lab6 | lab6@7effc117的README、框架、Spec与验收场景 | Spec、代码与测试已实现；VMware验收待完成 |
+| Lab5 | lab5@4a0f4b72；master新增Lab5 PDF | 双平台构建、QEMU双核、VF2四核基础实板测试通过；其他启动hart待补 |
+| Lab6 | lab6@7effc117的README、框架、Spec与验收场景 | 双平台构建与单/双核10项回归通过；实板验收进行中 |
 | Lab7及以后 | 当前未发现对应发布分支 | 尚未开始 |
 
 最新远端分支为master和lab1至lab6，仍未发现Git Tag。Lab6虽没有单独课件，
@@ -30,8 +30,9 @@ Lab6从已实现的Lab5分支派生，更新系统调用编号并接入多进程
 ## 环境与当前限制
 
 实验编译、QEMU和GDB仍固定在VMware Ubuntu 22.04.5。
-本次VMAuthdService停止，UAC服务恢复被取消，SSH不可用，尚未执行新代码构建。
-测试脚本和报告明确区分代码实现与实际通过，不使用宿主机或WSL编译替代。
+VMware服务和SSH已恢复，CH340串口已接入虚拟机；编译和回归均在原有环境执行。
+不使用宿主机或WSL编译替代。TF卡使用官方Ubuntu作为文件准备和启动入口，
+实验内核由U-Boot临时加载；实板日志保存在E:\oslab\board-setup\logs。
 
 检查新发布：
 
