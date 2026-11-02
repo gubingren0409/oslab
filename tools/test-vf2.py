@@ -2,10 +2,12 @@
 """Verify SELFTEST Images already copied to /boot/oslab, using minicom in VMware."""
 import argparse
 import json
+import os
 import re
+import subprocess
 import time
 
-from vf2_console import Console, SETUP
+from vf2_console import Console, PROMPT, SETUP
 
 DTB = "/dtbs/6.12.5-starfive/starfive/jh7110-starfive-visionfive-2-v1.3b.dtb"
 MARKERS = {
@@ -90,11 +92,63 @@ def run(test, boot_hart=None, reset=False):
         print("Returned to U-Boot", flush=True)
 
 
+def suite(resume=False):
+    """Wait for physical resets; automatically load the remaining test Images."""
+    console = Console()
+    (SETUP / "logs/vf2-suite.pid").write_text(str(os.getpid()))
+    cases = [(name, None) for name in
+             ("lab6_locks", "lab6_fork", "lab6_slots", "lab6_initexit")]
+    cases += [("lab6", hart) for hart in range(1, 5)]
+    cases += [("lab5", hart) for hart in range(2, 5)]
+    result_path = SETUP / "logs/vf2-suite-results.json"
+    results = json.loads(result_path.read_text()) if resume and result_path.exists() else []
+    done = {(item["case"], item["boot"]) for item in results if item["status"] == "passed"}
+    # Include a reset already pressed after the previous validated UART probe.
+    raw = (SETUP / "logs/vf2-serial-boot.log").read_bytes()
+    mark = raw.rfind(b"UART_SELFTEST_PASS irq=32")
+    if mark < 0:
+        mark = console.mark()
+    ready = bool(re.search(PROMPT + r"\Z", console.read(max(0, console.mark() - 4096))))
+    for number, (test, hart) in enumerate(cases, 1):
+        if (test, hart or "direct") in done:
+            continue
+        message = f"PASS / HOLD RESET 4s: next {number}/{len(cases)} {test} hart={hart or 'direct'}"
+        subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000", message],
+                       check=True)
+        print(message, flush=True)
+        if not ready:
+            console.wait_uboot(mark, timeout=900)
+        ready = False
+        subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "1000",
+                        f"RUNNING {test} hart={hart or 'direct'}"], check=True)
+        run(test, hart)
+        results.append({"case": test, "boot": hart or "direct", "status": "passed"})
+        result_path.write_text(json.dumps(results, indent=2) + "\n")
+        mark = console.mark()
+    message = "ALL TESTS PASS / HOLD RESET 4s once more to start Ubuntu"
+    subprocess.run(["tmux", "display-message", "-t", "vf2-serial", "-d", "600000", message],
+                   check=True)
+    print(message, flush=True)
+    console.wait(mark, r"(?m)^starfive login:\s*$", timeout=900)
+    console.send("user")
+    console.wait(mark, r"(?m)^Password:\s*$", timeout=15)
+    console.send("starfive")
+    console.wait(mark, r"user@starfive:.*\$", timeout=60)
+    output = console.linux("uname -r; nproc; findmnt -n -o SOURCE,TARGET /; "
+                           "cd /boot/oslab && sha256sum -c SHA256SUMS")
+    (SETUP / "logs/ubuntu-restored.txt").write_text(output)
+    print("UBUNTU_RESTORED", flush=True)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("case", choices=MARKERS)
+    parser.add_argument("case", choices=[*MARKERS, "suite"])
     parser.add_argument("--boot-hart", type=int, choices=range(1, 5))
     parser.add_argument("--reset", action="store_true",
                         help="Request SBI SRST after passing (requires working PMIC reset)")
+    parser.add_argument("--resume", action="store_true", help="Resume recorded suite progress")
     args = parser.parse_args()
-    run(args.case, args.boot_hart, args.reset)
+    if args.case == "suite":
+        suite(args.resume)
+    else:
+        run(args.case, args.boot_hart, args.reset)
