@@ -94,5 +94,14 @@ VF2 使用串口传输镜像并核对 SHA-256；U-Boot 每次加载后检查字�
 结合直接 booti 的 hart1，共 4 次实板运行覆盖所有有效启动 hart；
 各计算 hart 每次均仅启动一次。固件冷启动 hart 仍为 1，测试加载器在 RAM 中完成切换。
 结构化结果与镜像校验值见 docs/validation/vf2-results.json。
-实验内核通过后，测试用 SBI SRST 冷重启遇到固件 PMIC 读取失败，需板上 Reset 恢复。
-此问题单独记录，不计入已通过的内存、用户程序和中断结果。
+此前镜像在 SBI SRST 冷重启时遇到固件 PMIC 读取失败，该问题与实验功能结果分别记录。
+
+## 软件重启补充
+
+已加入 VF2 专用的 I²C5/PMIC 恢复路径，正常运行和 panic 循环均接受串口 Ctrl+R。
+Lab5 正式与 SELFTEST 镜像已重新构建，原 VMware 环境双核 QEMU SELFTEST 通过。
+相同重启实现已在 Lab6 正式和 SELFTEST 镜像验证返回 U-Boot；Lab5 修复镜像的
+连续实板验证尚待进行。SDIO BootROM 偶发读卡失败仍需处理，SPI 同版本固件更新
+已完成只读备份与预检，尚未写入。
+机制、命令和当前证据见 [软件重启说明](docs/vf2-software-reboot.md)及
+[结构化记录](docs/validation/vf2-reboot-results.json)。
