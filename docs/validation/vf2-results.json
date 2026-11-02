@@ -1,0 +1,342 @@
+{
+  "verification_date": "2026-11-01",
+  "timezone": "America/Los_Angeles",
+  "build_environment": {
+    "platform": "VMware Ubuntu 22.04.5",
+    "gcc": "11.4",
+    "binutils": "2.38",
+    "qemu": "5.1",
+    "qemu_opensbi": "0.7"
+  },
+  "board": {
+    "model": "VisionFive 2 v1.3B",
+    "ram_gib": 4,
+    "opensbi": "1.2",
+    "uboot": "2021.10",
+    "firmware_boot_hart": 1,
+    "kernel_address": "0x40200000",
+    "managed_end": "0x48200000",
+    "dtb_address": "0x4a000000",
+    "hart_loader_address": "0x49000000",
+    "hart_loader_sha256": "3ed660d89e3ae12a4548bc2ff0a185b84ecc5ebe98092f158a4143ee4976491f"
+  },
+  "kernel_source_commits": {
+    "lab5": "0180c8eff9e8a0f8dd8704cd719052eecc33323f",
+    "lab6": "de8ec0d318fa05de6b72c920d06d59ea37b7261b"
+  },
+  "qemu_runs": [
+    {
+      "test": "lab6",
+      "harts": 1,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_fork",
+      "harts": 1,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_slots",
+      "harts": 1,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_locks",
+      "harts": 1,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_initexit",
+      "harts": 1,
+      "status": "passed"
+    },
+    {
+      "test": "lab6",
+      "harts": 2,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_fork",
+      "harts": 2,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_slots",
+      "harts": 2,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_locks",
+      "harts": 2,
+      "status": "passed"
+    },
+    {
+      "test": "lab6_initexit",
+      "harts": 2,
+      "status": "passed"
+    },
+    {
+      "test": "lab5",
+      "harts": 2,
+      "status": "passed"
+    },
+    {
+      "test": "lab6-default",
+      "harts": 2,
+      "status": "passed"
+    }
+  ],
+  "board_runs": [
+    {
+      "label": "lab5-direct",
+      "test": "lab5",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "831ee197dbfe1c521eb08e3a5c873053ba3470d277e68e584b187dfd519c8eea",
+      "image_crc32": "eaabf8d0",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015375,
+      "uart_irq": 32,
+      "uart_hart": 4
+    },
+    {
+      "label": "lab5-hart2",
+      "test": "lab5",
+      "boot_hart": 2,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "831ee197dbfe1c521eb08e3a5c873053ba3470d277e68e584b187dfd519c8eea",
+      "image_crc32": "eaabf8d0",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015376,
+      "uart_irq": 32,
+      "uart_hart": 1
+    },
+    {
+      "label": "lab5-hart3",
+      "test": "lab5",
+      "boot_hart": 3,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "831ee197dbfe1c521eb08e3a5c873053ba3470d277e68e584b187dfd519c8eea",
+      "image_crc32": "eaabf8d0",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8031320,
+      "uart_irq": 32,
+      "uart_hart": 2
+    },
+    {
+      "label": "lab5-hart4",
+      "test": "lab5",
+      "boot_hart": 4,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "831ee197dbfe1c521eb08e3a5c873053ba3470d277e68e584b187dfd519c8eea",
+      "image_crc32": "eaabf8d0",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015375,
+      "uart_irq": 32,
+      "uart_hart": 3
+    },
+    {
+      "label": "lab6-direct",
+      "test": "lab6",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "102c19b074e754d21c407aec3cf903585b14018d9d0d735d41fa654df3f3ef3d",
+      "image_crc32": "988b4906",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8007371,
+      "uart_irq": 32,
+      "uart_hart": 4
+    },
+    {
+      "label": "lab6-hart1",
+      "test": "lab6",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "102c19b074e754d21c407aec3cf903585b14018d9d0d735d41fa654df3f3ef3d",
+      "image_crc32": "988b4906",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8007372,
+      "uart_irq": 32,
+      "uart_hart": 3
+    },
+    {
+      "label": "lab6-hart2",
+      "test": "lab6",
+      "boot_hart": 2,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "102c19b074e754d21c407aec3cf903585b14018d9d0d735d41fa654df3f3ef3d",
+      "image_crc32": "988b4906",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015341,
+      "uart_irq": 32,
+      "uart_hart": 3
+    },
+    {
+      "label": "lab6-hart3",
+      "test": "lab6",
+      "boot_hart": 3,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "102c19b074e754d21c407aec3cf903585b14018d9d0d735d41fa654df3f3ef3d",
+      "image_crc32": "988b4906",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8023310,
+      "uart_irq": 32,
+      "uart_hart": 1
+    },
+    {
+      "label": "lab6-hart4",
+      "test": "lab6",
+      "boot_hart": 4,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "102c19b074e754d21c407aec3cf903585b14018d9d0d735d41fa654df3f3ef3d",
+      "image_crc32": "988b4906",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015337,
+      "uart_irq": 32,
+      "uart_hart": 2
+    },
+    {
+      "label": "lab6_fork-direct",
+      "test": "lab6_fork",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "325ad84e147fbf5f5f96bfa19afe8051e9085106f40bbf5c2603ff400ff4205a",
+      "image_crc32": "ffa688c9",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015337,
+      "uart_irq": 32,
+      "uart_hart": 4
+    },
+    {
+      "label": "lab6_slots-direct",
+      "test": "lab6_slots",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "d630d44f7fdbec8f02208dc772a3e4d3611069e0bbdbc26d4fbf439e2b48d900",
+      "image_crc32": "2e53f370",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8123419,
+      "uart_irq": 32,
+      "uart_hart": 3
+    },
+    {
+      "label": "lab6_locks-direct",
+      "test": "lab6_locks",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "21a57755e362964daa78abe97b755ec0145a60f3a2b3bd210f323eda201b79b4",
+      "image_crc32": "0236cf38",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8031296,
+      "uart_irq": 32,
+      "uart_hart": 3
+    },
+    {
+      "label": "lab6_initexit-direct",
+      "test": "lab6_initexit",
+      "boot_hart": 1,
+      "active_harts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "passed",
+      "image_sha256": "c1b98fa5accdf291b6cc176be71eff02eb39820719bc0fd9dd6553bc7362ca63",
+      "image_crc32": "2dceef21",
+      "timer_ticks": 20,
+      "timer_interval": 400000,
+      "timer_delta": 8015339,
+      "uart_irq": 32,
+      "uart_hart": 4
+    }
+  ],
+  "known_issues": [
+    "SBI SRST cold reboot stopped at pmic_ops: cannot read pmic power register; use physical Reset.",
+    "One physical reset before lab5-hart4 stopped at BootROM dwmci timeout / BOOT fail; retrying Reset recovered boot."
+  ]
+}

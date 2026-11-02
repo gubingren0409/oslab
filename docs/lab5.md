@@ -3,7 +3,7 @@
 - 学生：谷秉仁
 - 实验分支：`lab-5`
 - 课程框架：`course/lab5@4a0f4b72`
-- 当前状态：VMware 双平台构建、QEMU 回归及 VF2 四核实板基础验收已通过。
+- 当前状态：VMware 双平台构建、QEMU 回归及 VF2 启动 hart 1～4 四核实板验收已通过。
 
 ## 实验要求
 
@@ -89,6 +89,10 @@ VF2 使用串口传输镜像并核对 SHA-256；U-Boot 每次加载后检查字�
 输入 A 得到 UART_SELFTEST_PASS irq=32 hart=4，确认 Sv39 下串口接收和 PLIC 正常。
 
 记录位于 E:\oslab\board-setup\logs\lab5-direct.log 和 lab5-direct.json。
-本次已验证的启动 hart 为 1；其余启动 hart 的独立实板测试仍需补充。
+另通过仅用于验收的 HSM 加载器，分别选择 hart2、3、4 作为内核启动 hart。
+三种情况均通过 LAB5_PASS、并发 mmap 节点池、四核 timer、共享 tick 与 UART 检查。
+结合直接 booti 的 hart1，共 4 次实板运行覆盖所有有效启动 hart；
+各计算 hart 每次均仅启动一次。固件冷启动 hart 仍为 1，测试加载器在 RAM 中完成切换。
+结构化结果与镜像校验值见 docs/validation/vf2-results.json。
 实验内核通过后，测试用 SBI SRST 冷重启遇到固件 PMIC 读取失败，需板上 Reset 恢复。
 此问题单独记录，不计入已通过的内存、用户程序和中断结果。

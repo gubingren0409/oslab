@@ -16,8 +16,8 @@
 | 实验 | 发布依据 | 个人状态 |
 | --- | --- | --- |
 | Lab0～Lab4 | 原有任务分支和课件 | 已完成并通过前次VMware验收，历史分支保留 |
-| Lab5 | lab5@4a0f4b72；master新增Lab5 PDF | 双平台构建、QEMU双核、VF2四核基础实板测试通过；其他启动hart待补 |
-| Lab6 | lab6@7effc117的README、框架、Spec与验收场景 | 双平台构建与单/双核10项回归通过；实板验收进行中 |
+| Lab5 | lab5@4a0f4b72；master新增Lab5 PDF | 双平台构建、QEMU双核、VF2启动hart1～4四核实板测试通过 |
+| Lab6 | lab6@7effc117的README、框架、Spec与验收场景 | 双平台构建、单/双核10项回归、默认演示、VF2全部专项及启动hart1～4测试通过 |
 | Lab7及以后 | 当前未发现对应发布分支 | 尚未开始 |
 
 最新远端分支为master和lab1至lab6，仍未发现Git Tag。Lab6虽没有单独课件，
