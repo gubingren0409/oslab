@@ -15,6 +15,14 @@ void uart_putc_sync(int c);
 int uart_getc_sync(void);
 void uart_intr(void);
 
+#ifdef VISIONFIVE2
+int vf2_reset_prepare(void);
+int vf2_reboot(void);
+#ifdef OSLAB_SELFTEST
+void vf2_reset_report(void);
+#endif
+#endif
+
 /* cpu.c: 获得CPU信息 */
 
 int mycpuid(void);

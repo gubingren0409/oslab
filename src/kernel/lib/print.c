@@ -172,7 +172,13 @@ void panic(const char *s)
 
     panicked = 1;
     while (1)
-        ;
+    {
+#ifdef VISIONFIVE2
+        /* Interrupts are disabled after panic, so poll the same reset key. */
+        if (uart_getc_sync() == 0x12)
+            (void)vf2_reboot();
+#endif
+    }
 }
 
 /* 如果不满足条件, 则调用panic */

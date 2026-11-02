@@ -37,6 +37,8 @@
 #define UART_BASE 0x10000000ul
 #ifdef VISIONFIVE2
 #define UART_IRQ 32
+#define VF2_I2C5_BASE 0x12050000ul
+#define VF2_SYSCRG_BASE 0x13020000ul
 #else
 #define UART_IRQ 10
 #endif

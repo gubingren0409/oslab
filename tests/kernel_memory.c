@@ -16,17 +16,13 @@ int memory_selftest_uart_control(int c)
     if (c == 'A')
         printf("UART_SELFTEST_PASS irq=%d hart=%d\n", UART_IRQ, mycpuid());
 #ifdef VISIONFIVE2
-    if (c == 0x12)
+    if (c == 'P')
     {
-        printf("SELFTEST_REBOOT\n");
-        register uint64 a0 asm("a0") = 1; // SBI cold reboot
-        register uint64 a1 asm("a1") = 0; // no failure reason
-        register uint64 a6 asm("a6") = 0;
-        register uint64 a7 asm("a7") = 0x53525354; // SRST
-        asm volatile("ecall" : "+r"(a0), "+r"(a1) : "r"(a6), "r"(a7) : "memory");
-        printf("SELFTEST_REBOOT_FAIL error=%d\n", (int)a0);
+        vf2_reset_report();
         return 1;
     }
+    if (c == '!')
+        panic("VF2 reboot validation");
 #endif
     return 0;
 }

@@ -73,6 +73,18 @@ void uart_intr(void)
 		if (c == -1)
 			break;
 
+#ifdef VISIONFIVE2
+		if (c == 0x12) /* Ctrl+R is available in normal and SELFTEST kernels. */
+		{
+			if (!panicked)
+				printf("VF2_REBOOT_REQUEST\n");
+			int error = vf2_reboot();
+			if (!panicked)
+				printf("VF2_REBOOT_FAIL error=%d\n", error);
+			continue;
+		}
+#endif
+
 #ifdef OSLAB_SELFTEST
 		extern int memory_selftest_uart_control(int c);
 		if (memory_selftest_uart_control(c))
