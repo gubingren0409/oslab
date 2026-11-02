@@ -93,6 +93,7 @@ interval=400000，20 个共享 tick 的 time 差为 8007371。
 | 首进程退出、其他进程继续运行 | LAB6_INITEXIT_PASS |
 
 共 9 次 VF2 运行，分场景 JSON 和串口日志位于 board-setup/logs。
+结构化结果及镜像校验值见 docs/validation/vf2-results.json。
 另在 VMware 的默认双核 QEMU 镜像验证演示程序：子进程 sleep(30) 后退出，
 父进程打印 parent: child exit status=1234。该运行未启用 SELFTEST。
 
