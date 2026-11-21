@@ -158,6 +158,33 @@ typedef struct inode_disk {
 #define BIT_PER_BLOCK (BLOCK_SIZE * BIT_PER_BYTE)
 #define INODE_PER_BLOCK (BLOCK_SIZE / sizeof(inode_disk_t))
 
+#define INODE_TYPE_DATA 0
+#define INODE_TYPE_DIR 1
+#define INODE_TYPE_DIVICE 2
+#define INODE_MAJOR_DEFAULT 1
+#define INODE_MINOR_DEFAULT 1
+#define INODE_INDEX_1 10
+#define INODE_INDEX_2 12
+#define INODE_INDEX_3 13
+#define INODE_BLOCK_INDEX_1 10
+#define INODE_BLOCK_INDEX_2 (10 + 2048)
+#define INODE_BLOCK_INDEX_3 (10 + 2048 + 1024 * 1024)
+#define INODE_MAX_SIZE 0xffffffffU
+#define ROOT_INODE 0
+#define N_INODE 64
+#define MAXLEN_FILENAME 60
+#define INVALID_INODE_NUM 0xffffffffU
+typedef struct inode {
+    inode_disk_t disk_info;
+    bool valid_info;
+    bool deleting;
+    uint32 inode_num, ref;
+    sleeplock_t slk;
+} inode_t;
+typedef struct dentry { char name[MAXLEN_FILENAME]; uint32 inode_num; } dentry_t;
+#define DENTRY_PER_BLOCK (BLOCK_SIZE / sizeof(dentry_t))
+#define COUNT_BLOCKS(n, per) (((n) + (per) - 1) / (per))
+
 
 /*----------------------关于SD卡(SDIO)----------------------*/
 

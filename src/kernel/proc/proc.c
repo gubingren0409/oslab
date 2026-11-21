@@ -215,6 +215,10 @@ void proc_scheduler(void)
     while (1)
     {
         intr_on();
+        // Drain pending interrupts, then keep SIE clear through the idle scan.
+        // WFI wakes for locally enabled pending interrupts even with SIE=0;
+        // the next loop enables delivery. This closes scan -> WFI lost wakeups.
+        intr_off();
         bool found = false;
         for (int i = 0; i < N_PROC; i++)
         {

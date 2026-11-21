@@ -14,5 +14,6 @@ typedef struct sleeplock
     spinlock_t lock;
     bool locked;
     int pid;
+    uint32 waiters;
     char *name;
 } sleeplock_t;

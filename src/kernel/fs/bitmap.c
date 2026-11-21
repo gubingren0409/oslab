@@ -8,6 +8,7 @@ static uint32 alloc(uint32 first, uint32 count, uint32 base)
         uint32 valid = count - start;
         if (valid > BIT_PER_BLOCK) valid = BIT_PER_BLOCK;
         for (uint32 bit = 0; bit < valid; bit++) {
+            if (!(bit % 8) && b->data[bit / 8] == 0xff) { bit += 7; continue; }
             uint8 mask = 1u << (bit % 8);
             if (!(b->data[bit / 8] & mask)) {
                 b->data[bit / 8] |= mask;

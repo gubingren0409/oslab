@@ -1,0 +1,193 @@
+Lab8 VMware validation (2026-11-21)
+
+/tmp/lab8-complete.log
+created /dev/shm/ecnu-oslab-lab789/lab8-1-1795260541126725714.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab8, harts=1, buffers=64, image=/dev/shm/ecnu-oslab-lab789/lab8-1-1795260541126725714.img
+created /dev/shm/ecnu-oslab-lab789/lab8-2-1795260979360558112.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=64, image=/dev/shm/ecnu-oslab-lab789/lab8-2-1795260979360558112.img
+created /dev/shm/ecnu-oslab-lab789/full-18-1795261423273769626.img: 1046 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=8, image=/dev/shm/ecnu-oslab-lab789/full-18-1795261423273769626.img
+created /dev/shm/ecnu-oslab-lab789/full-2068-1795261428082776633.img: 3096 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=8, image=/dev/shm/ecnu-oslab-lab789/full-2068-1795261428082776633.img
+
+/tmp/lab8-default.log
+created /home/oslab/.cache/ecnu-oslab/lab789/lab8-2-1795261330750053402.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=16384, image=/home/oslab/.cache/ecnu-oslab/lab789/lab8-2-1795261330750053402.img
+
+/tmp/lab8-regression-final.log
+PASS lab6, harts=1, selftest=True
+PASS lab6_fork, harts=1, selftest=False
+PASS lab6_slots, harts=1, selftest=False
+PASS lab6_locks, harts=1, selftest=True
+PASS lab6_initexit, harts=1, selftest=False
+PASS lab6, harts=2, selftest=True
+PASS lab6_fork, harts=2, selftest=False
+PASS lab6_slots, harts=2, selftest=False
+PASS lab6_locks, harts=2, selftest=True
+PASS lab6_initexit, harts=2, selftest=False
+
+/tmp/lab8-image-check.json
+{
+  "status": "passed",
+  "prefix": "target/vf2/lab8/buffers16384/kernel/kernel-vf2",
+  "entry": "0x40200000",
+  "text_offset": "0x200000",
+  "image_size": 1527808,
+  "file_size": 38944,
+  "managed_end": "0x48200000",
+  "sha256": "19c464709a5f5a7ebf771ee45038bcae9252363aa97a4bcdef886303395c5b0e"
+}
+
+target/qemu/lab8/fstest1/buffers64/hart1/lab8/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 0 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+inode root: num=0 ref=1 type=1 nlink=1 size=256
+index: 1067 0 0 0 0 0 0 0 0 0 0 0 0
+dentry: offset=0 inode=0 name=.
+dentry: offset=64 inode=0 name=..
+dentry: offset=128 inode=1 name=ABCD.txt
+dentry: offset=192 inode=2 name=abcd.txt
+LAB8_SMALL_PASS
+LAB8_BIG_PROGRESS chunks=1000
+LAB8_BIG_PROGRESS chunks=2000
+LAB8_BIG_PROGRESS chunks=3000
+LAB8_BIG_PROGRESS chunks=4000
+LAB8_BIG_PROGRESS chunks=5000
+LAB8_BIG_PROGRESS chunks=6000
+LAB8_BIG_PROGRESS chunks=7000
+LAB8_BIG_PROGRESS chunks=8000
+LAB8_BIG_PROGRESS chunks=9000
+LAB8_BIG_PROGRESS chunks=10000
+inode big: num=3 ref=1 type=0 nlink=1 size=174940000
+index: 1074 1075 1076 1077 1078 1079 1080 1081 1082 1083 1084 2109 3134
+LAB8_BIG_PASS
+LAB8_PASS
+LAB8_USER_READY
+qemu-system-riscv64: terminating on signal 15 from pid 50581 (python3)
+
+target/qemu/lab8/fstest1/buffers64/lab8/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 0 is booting with OpenSBI!
+cpu 1 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+inode root: num=0 ref=1 type=1 nlink=1 size=256
+index: 1067 0 0 0 0 0 0 0 0 0 0 0 0
+dentry: offset=0 inode=0 name=.
+dentry: offset=64 inode=0 name=..
+dentry: offset=128 inode=1 name=ABCD.txt
+dentry: offset=192 inode=2 name=abcd.txt
+LAB8_SMALL_PASS
+LAB8_BIG_PROGRESS chunks=1000
+LAB8_BIG_PROGRESS chunks=2000
+LAB8_BIG_PROGRESS chunks=3000
+LAB8_BIG_PROGRESS chunks=4000
+LAB8_BIG_PROGRESS chunks=5000
+LAB8_BIG_PROGRESS chunks=6000
+LAB8_BIG_PROGRESS chunks=7000
+LAB8_BIG_PROGRESS chunks=8000
+LAB8_BIG_PROGRESS chunks=9000
+LAB8_BIG_PROGRESS chunks=10000
+inode big: num=3 ref=1 type=0 nlink=1 size=174940000
+index: 1074 1075 1076 1077 1078 1079 1080 1081 1082 1083 1084 2109 3134
+LAB8_BIG_PASS
+LAB8_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 50581 (python3)
+
+target/qemu/lab8/fstest2/buffers8/lab8/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 1
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 1 is booting with OpenSBI!
+cpu 0 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1027]
+5. data region:  block[1028 - 3095]
+block size = 4096 Byte, total size = 12 MB, total inode = 65536
+
+LAB8_FULL_PASS pages=2058
+LAB8_USER_READY
+qemu-system-riscv64: terminating on signal 15 from pid 50581 (python3)
+
+Physical SDIO: NOT TESTED; partition provisioning required.

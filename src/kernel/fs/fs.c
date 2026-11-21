@@ -1,4 +1,7 @@
 #include "mod.h"
+#if FS_TEST
+#include "../../../tests/kernel_fs.c"
+#endif
 
 super_block_t sb; /* 超级块 */
 static bool ready;
@@ -49,6 +52,10 @@ void fs_init()
            "fs_init: invalid filesystem geometry");
     ready = true;
     sb_print();
+    inode_init();
+#if FS_TEST
+    kernel_fs_test();
+#endif
 #else
     (void)sb_print;
 #endif

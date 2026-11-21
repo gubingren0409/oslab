@@ -1,4 +1,10 @@
 #include "mod.h"
+uint32 strlen(const char *s)
+{
+    uint32 len = 0;
+    while (s[len]) len++;
+    return len;
+}
 
 // 从begin开始对连续n个字节赋值data
 void memset(void *begin, uint8 data, uint32 n)

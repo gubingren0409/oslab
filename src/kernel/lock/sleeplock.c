@@ -6,6 +6,7 @@ void sleeplock_init(sleeplock_t *lk, char *name)
     spinlock_init(&lk->lock, "sleeplock");
     lk->locked = false;
     lk->pid = 0;
+    lk->waiters = 0;
     lk->name = name;
 }
 
@@ -24,8 +25,11 @@ void sleeplock_acquire(sleeplock_t *lk)
     assert(p != NULL, "sleeplock_acquire: no process");
     spinlock_acquire(&lk->lock);
     assert(!lk->locked || lk->pid != p->pid, "sleeplock_acquire: recursive");
-    while (lk->locked)
+    while (lk->locked) {
+        lk->waiters++;
         proc_sleep(lk, &lk->lock);
+        lk->waiters--;
+    }
     lk->locked = true;
     lk->pid = p->pid;
     spinlock_release(&lk->lock);
@@ -38,6 +42,7 @@ void sleeplock_release(sleeplock_t *lk)
     assert(p && lk->locked && lk->pid == p->pid, "sleeplock_release: not owner");
     lk->locked = false;
     lk->pid = 0;
-    proc_wakeup(lk);
+    if (lk->waiters)
+        proc_wakeup(lk);
     spinlock_release(&lk->lock);
 }

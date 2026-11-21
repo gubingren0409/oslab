@@ -15,7 +15,12 @@ ifeq ($(filter $(CPUNUM),1 2),)
 $(error Lab6 supports CPUNUM=1 or CPUNUM=2)
 endif
 # 两个平台的生成文件完全隔离。
-TARGET = target/$(PLATFORM)/lab7
+TARGET = target/$(PLATFORM)/lab8
+FS_TEST ?= 0
+CFLAGS += -DFS_TEST=$(FS_TEST)
+ifneq ($(FS_TEST),0)
+TARGET := $(TARGET)/fstest$(FS_TEST)
+endif
 FS_ENABLED ?= 1
 NBUFFER ?= 16384
 SDIO_FS_FIRST_SECTOR ?= 0
@@ -165,6 +170,8 @@ $(TARGET)/user/initcode.o: $(UserSourceFile) | $(TARGET)
 
 $(TARGET)/kernel/selftest.o: tests/kernel_memory.c | $(TARGET)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(TARGET)/kernel/fs/fs.o: tests/kernel_fs.c
 
 # 链接生成用户程序ELF (main位于USER_BASE, 由user.ld保证)
 $(ELFUser): $(UserOBJ) $(USER_LD) | $(TARGET)

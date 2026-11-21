@@ -1,1 +1,1 @@
-#include "../../tests/user/lab7.c"
+#include "../../tests/user/lab8.c"

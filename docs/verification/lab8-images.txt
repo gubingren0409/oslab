@@ -1,0 +1,3 @@
+Lab8 image persistence verification
+/home/oslab/.cache/ecnu-oslab/lab789/lab8-1-1795260541126725714.img: inodes=3, data blocks=7, PASS
+/home/oslab/.cache/ecnu-oslab/lab789/lab8-2-1795260979360558112.img: inodes=3, data blocks=7, PASS

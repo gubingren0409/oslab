@@ -5,12 +5,13 @@ import pathlib
 import subprocess
 import time
 import struct
+import os
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-CACHE = pathlib.Path.home() / ".cache/ecnu-oslab/lab789"
+CACHE = pathlib.Path(os.environ.get("OSLAB_FS_CACHE", str(pathlib.Path.home() / ".cache/ecnu-oslab/lab789")))
 
-def run(test, marker, harts=2, buffers=8, timeout=30, image=None, input_bytes=b""):
-    options = [f"TEST={test}", f"CPUNUM={harts}", f"NBUFFER={buffers}"]
+def run(test, marker, harts=2, buffers=8, timeout=30, image=None, input_bytes=b"", fs_test=0):
+    options = [f"TEST={test}", f"CPUNUM={harts}", f"NBUFFER={buffers}", f"FS_TEST={fs_test}"]
     subprocess.run(["make", "-s", "-j2", "build", *options], cwd=ROOT, check=True)
     target = ROOT / subprocess.check_output(["make", "-s", "print-target", *options], cwd=ROOT, text=True).strip()
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -20,14 +21,24 @@ def run(test, marker, harts=2, buffers=8, timeout=30, image=None, input_bytes=b"
                str(target / "kernel/kernel-qemu.elf"), "-m", "130M", "-smp", str(harts),
                "-nographic", "-drive", f"file={image},if=none,format=raw,id=fs0",
                "-device", "virtio-blk-device,drive=fs0,bus=virtio-mmio-bus.0"]
-    p = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    try:
-        output, _ = p.communicate(input=input_bytes, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        p.terminate()
-        output, _ = p.communicate(timeout=5)
-    text = output.decode(errors="replace")
-    (target / "test.log").write_text(text)
+    log_path = target / "test.log"
+    with log_path.open("wb") as log:
+        p = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT)
+        deadline = time.monotonic() + timeout
+        while p.poll() is None and time.monotonic() < deadline:
+            text = log_path.read_text(errors="replace")
+            if input_bytes and "INPUT:" in text:
+                p.stdin.write(input_bytes)
+                p.stdin.flush()
+                input_bytes = b""
+            if marker in text or "panic:" in text or "_FAIL" in text:
+                break
+            time.sleep(0.1)
+        if p.poll() is None:
+            p.terminate()
+        p.wait(timeout=5)
+        p.stdin.close()
+    text = log_path.read_text(errors="replace")
     assert marker in text and "panic:" not in text and "_FAIL" not in text, text
     if test == "lab7":
         with image.open("rb") as f:
@@ -57,10 +68,23 @@ def bitmap_test():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("lab", choices=["lab7", "bitmap"])
+    parser.add_argument("lab", choices=["lab7", "bitmap", "lab8", "lab8-full"])
     args = parser.parse_args()
     if args.lab == "lab7":
         for harts in (1, 2):
             run(args.lab, args.lab.upper()+"_PASS", harts, timeout=8)
         run("lab7", "LAB7_PASS", buffers=16384, timeout=8)
-    bitmap_test()
+    if args.lab in ("lab7", "bitmap"):
+        bitmap_test()
+    if args.lab == "lab8":
+        for harts in (1, 2):
+            run("lab8", "LAB8_PASS", harts, buffers=64, fs_test=1, timeout=900)
+    if args.lab in ("lab8", "lab8-full"):
+        options=["TEST=lab8", "NBUFFER=8", "FS_TEST=2"]
+        subprocess.run(["make", "-s", "-j2", "build", *options], cwd=ROOT, check=True)
+        target=ROOT/subprocess.check_output(["make", "-s", "print-target", *options],cwd=ROOT,text=True).strip()
+        subprocess.run(["make", "-s", str(target.relative_to(ROOT)/"mkfs"), *options],cwd=ROOT,check=True)
+        for blocks in (18,2068):
+            image=CACHE/f"full-{blocks}-{time.time_ns()}.img"
+            subprocess.run([str(target/"mkfs"),str(image),str(blocks)],check=True)
+            run("lab8","LAB8_FULL_PASS",image=image,fs_test=2,timeout=60)
