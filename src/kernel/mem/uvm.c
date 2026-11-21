@@ -61,12 +61,12 @@ int uvm_copyin_str(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 maxlen)
     return -1;
 }
 
-uint64 uvm_heap_grow(pgtbl_t pgtbl, uint64 cur, uint32 len)
+uint64 uvm_heap_grow(pgtbl_t pgtbl, uint64 cur, uint32 len, int perm)
 {
-    if (cur < USER_HEAP_BASE || cur > MMAP_BEGIN || len > MMAP_BEGIN - cur)
+    if (cur < USER_BASE || cur > MMAP_BEGIN || len > MMAP_BEGIN - cur)
         return 0;
     uint64 end = cur + len;
-    if (vm_user_alloc(pgtbl, PGROUNDUP(cur), PGROUNDUP(end), PTE_R | PTE_W | PTE_U) < 0)
+    if (vm_user_alloc(pgtbl, PGROUNDUP(cur), PGROUNDUP(end), perm | PTE_U) < 0)
         return 0;
     return end;
 }

@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 def run_image(test, marker, harts=2, selftest=False, timeout=12):
-    options = [f"TEST={test}", f"CPUNUM={harts}", "FS_ENABLED=0"]
+    options = [f"TEST={test}", f"CPUNUM={harts}", "FS_ENABLED=0", "LEGACY_TEST=1"]
     if selftest:
         options.append("SELFTEST=1")
         timeout = max(timeout, 12)

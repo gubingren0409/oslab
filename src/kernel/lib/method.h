@@ -35,3 +35,7 @@ void memset(void *begin, uint8 data, uint32 n);
 void memmove(void *dst, const void *src, uint32 n);
 int strncmp(const char *p, const char *q, uint32 n);
 uint32 strlen(const char *s);
+void cons_init(void);
+void cons_edit(int c);
+uint32 cons_read(uint32 len,uint64 dst,bool user);
+uint32 cons_write(uint32 len,uint64 src,bool user);

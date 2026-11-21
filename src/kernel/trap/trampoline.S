@@ -88,6 +88,7 @@ user_return:
         # 切换到用户页表
         csrw satp, a1
         sfence.vma zero, zero
+        fence.i
 
 #---------------------ld 过程 (begin)----------------------
 

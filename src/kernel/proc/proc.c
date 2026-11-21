@@ -45,8 +45,16 @@ void proc_return(void)
     proc_t *p = myproc();
     assert(p && spinlock_holding(&p->lk), "proc_return: no handoff lock");
     spinlock_release(&p->lk);
-    if (p == proczero)
+    if (p == proczero) {
         fs_init();
+        if (fs_ready()) {
+            p->cwd=inode_get(ROOT_INODE);
+            p->open_file[0]=file_open("/dev/stdin",FILE_OPEN_READ);
+            p->open_file[1]=file_open("/dev/stdout",FILE_OPEN_WRITE);
+            p->open_file[2]=file_open("/dev/stderr",FILE_OPEN_WRITE);
+            assert(p->cwd && p->open_file[0] && p->open_file[1] && p->open_file[2],"init: stdio/cwd");
+        }
+    }
     trap_user_return();
     panic("proc_return: returned");
 }
@@ -54,6 +62,9 @@ void proc_return(void)
 void proc_free(proc_t *p)
 {
     assert(spinlock_holding(&p->lk) && p->state != RUNNING, "proc_free: unsafe state");
+    assert(p->cwd==NULL,"proc_free: cwd must be closed before wait locks");
+    for (int i=0;i<N_OPEN_FILE_PER_PROC;i++)
+        assert(p->open_file[i]==NULL,"proc_free: live file");
     uvm_destroy_pgtbl(p->pgtbl);
     if (p->tf != NULL)
         pmem_free((uint64)p->tf, false);
@@ -68,6 +79,9 @@ void proc_free(proc_t *p)
     p->pid = 0;
     p->parent = NULL;
     p->heap_top = 0;
+    p->heap_base = 0;
+    p->cwd = NULL;
+    memset(p->open_file,0,sizeof(p->open_file));
     p->ustack_npage = 0;
     p->sleep_space = NULL;
     p->exit_code = 0;
@@ -133,6 +147,7 @@ void proc_make_first(void)
     memmove((void *)PTE_TO_PA(*code), initcode_bin, initcode_bin_len);
     asm volatile("fence.i" ::: "memory");
     p->heap_top = USER_HEAP_BASE;
+    p->heap_base = USER_HEAP_BASE;
     p->ustack_npage = 1;
     p->tf->user_to_kern_epc = USER_BASE;
     p->tf->sp = USER_STACK_TOP;
@@ -163,6 +178,10 @@ int proc_fork(void)
         link = &node->next;
     }
     child->heap_top = parent->heap_top;
+    child->heap_base = parent->heap_base;
+    child->cwd = parent->cwd ? inode_dup(parent->cwd) : NULL;
+    for (int i=0;i<N_OPEN_FILE_PER_PROC;i++)
+        child->open_file[i] = parent->open_file[i] ? file_dup(parent->open_file[i]) : NULL;
     child->ustack_npage = parent->ustack_npage;
     *child->tf = *parent->tf;
     child->tf->a0 = 0;
@@ -289,8 +308,10 @@ static void proc_reparent(proc_t *parent)
 void proc_exit(int status)
 {
     proc_t *p = myproc();
-    if (fs_ready())
-        buffer_release_owned();
+    for (int i=0;i<N_OPEN_FILE_PER_PROC;i++) if (p->open_file[i]) {
+        file_close(p->open_file[i]); p->open_file[i]=NULL;
+    }
+    inode_put(p->cwd); p->cwd=NULL;
     spinlock_acquire(&wait_lk);
     proc_reparent(p);
     proc_try_wakeup(p->parent);

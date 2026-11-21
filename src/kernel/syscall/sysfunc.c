@@ -6,12 +6,12 @@ uint64 sys_brk(void)
     uint64 next = arg_raw(0), old = p->heap_top;
     if (next == 0)
         return old;
-    if (next < USER_HEAP_BASE || next > MMAP_BEGIN)
+    if (next < p->heap_base || next > MMAP_BEGIN)
         return -1;
     uint64 diff = next > old ? next - old : old - next;
     if (diff > 0xfffffffful)
         return -1;
-    uint64 result = next >= old ? uvm_heap_grow(p->pgtbl, old, diff) :
+    uint64 result = next >= old ? uvm_heap_grow(p->pgtbl, old, diff, PTE_R | PTE_W) :
                                  uvm_heap_ungrow(p->pgtbl, old, diff);
     if (result == 0)
         return -1;

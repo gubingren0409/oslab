@@ -1,0 +1,9 @@
+systemd-detect-virt: vmware
+uname -r: 5.15.0-191-generic
+riscv64-linux-gnu-gcc --version: riscv64-linux-gnu-gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+riscv64-linux-gnu-ld --version: GNU ld (GNU Binutils for Ubuntu) 2.38
+qemu-system-riscv64 --version: QEMU emulator version 5.1.0
+gdb-multiarch --version: GNU gdb (Ubuntu 12.1-0ubuntu1~22.04.2) 12.1
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+TARGET    SOURCE      FSTYPE
+/mnt/hgfs vmhgfs-fuse fuse.vmhgfs-fuse

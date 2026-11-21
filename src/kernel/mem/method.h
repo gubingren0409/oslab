@@ -5,6 +5,7 @@
 void pmem_init(void);
 bool check_inkernel(uint64 p);
 uint32 pmem_available(bool in_kernel);
+void pmem_stat(uint32 *kernel_pages,uint32 *user_pages);
 void *pmem_alloc(bool in_kernel);
 void pmem_free(uint64 page, bool in_kernel);
 
@@ -24,7 +25,7 @@ int vm_user_copy(pgtbl_t old, pgtbl_t new);
 int uvm_copyin(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len);
 int uvm_copyout(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 len);
 int uvm_copyin_str(pgtbl_t pgtbl, uint64 dst, uint64 src, uint32 maxlen);
-uint64 uvm_heap_grow(pgtbl_t pgtbl, uint64 cur, uint32 len);
+uint64 uvm_heap_grow(pgtbl_t pgtbl, uint64 cur, uint32 len, int perm);
 uint64 uvm_heap_ungrow(pgtbl_t pgtbl, uint64 cur, uint32 len);
 int64 uvm_ustack_grow(pgtbl_t pgtbl, uint64 old_npage, uint64 fault);
 void uvm_destroy_pgtbl(pgtbl_t pgtbl);

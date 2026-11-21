@@ -185,6 +185,30 @@ typedef struct dentry { char name[MAXLEN_FILENAME]; uint32 inode_num; } dentry_t
 #define DENTRY_PER_BLOCK (BLOCK_SIZE / sizeof(dentry_t))
 #define COUNT_BLOCKS(n, per) (((n) + (per) - 1) / (per))
 
+#define FILE_OPEN_CREATE 1
+#define FILE_OPEN_READ 2
+#define FILE_OPEN_WRITE 4
+#define FILE_LSEEK_SET 0
+#define FILE_LSEEK_ADD 1
+#define FILE_LSEEK_SUB 2
+#define N_FILE 128
+typedef struct file {
+    inode_t *ip;
+    bool readable, writbale;
+    uint32 offset, ref;
+    sleeplock_t io_lock;
+} file_t;
+typedef struct file_stat {
+    uint16 type, nlink;
+    uint32 size, inode_num, offset;
+} file_stat_t;
+typedef struct device {
+    char name[MAXLEN_FILENAME];
+    uint32 (*read)(uint32, uint64, bool);
+    uint32 (*write)(uint32, uint64, bool);
+} device_t;
+#define N_DEVICE 16
+
 
 /*----------------------关于SD卡(SDIO)----------------------*/
 

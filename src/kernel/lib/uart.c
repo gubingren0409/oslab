@@ -91,20 +91,6 @@ void uart_intr(void)
 			continue;
 #endif
 
-		if (c == '\r' || c == '\n')
-		{
-			uart_putc_sync('\r');
-			uart_putc_sync('\n');
-		}
-		else if (c == '\b' || c == 0x7f)
-		{
-			uart_putc_sync('\b');
-			uart_putc_sync(' ');
-			uart_putc_sync('\b');
-		}
-		else
-		{
-			uart_putc_sync(c);
-		}
+		cons_edit(c);
 	}
 }

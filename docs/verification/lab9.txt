@@ -1,0 +1,665 @@
+Lab9 final source validation (2026-11-21)
+Control bytes are escaped; UART originals remain in target.
+
+/tmp/lab9-irq-final.log
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9-1-1795263631531760324.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab9, harts=1, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-1-1795263631531760324.img
+PASS lab9_persist, harts=2, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-1-1795263631531760324.img
+PASS image audit, harts=1
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263669888292271.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab9, harts=2, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263669888292271.img
+PASS lab9_persist, harts=1, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263669888292271.img
+PASS image audit, harts=2
+
+/tmp/lab9-irq-default.log
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263776174789134.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab9, harts=2, buffers=16384, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263776174789134.img
+PASS lab9_persist, harts=1, buffers=16384, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263776174789134.img
+PASS final default image audit
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9_fs_stress-2-1795263847444700757.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab9_fs_stress, harts=2, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9_fs_stress-2-1795263847444700757.img
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9_fs_stress-2-1795263863871050807.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab9_fs_stress, harts=2, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9_fs_stress-2-1795263863871050807.img
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9_fs_stress-2-1795263872176637391.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab9_fs_stress, harts=2, buffers=64, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9_fs_stress-2-1795263872176637391.img
+
+/tmp/lab9-regression.log
+PASS lab6, harts=1, selftest=True
+PASS lab6_fork, harts=1, selftest=False
+PASS lab6_slots, harts=1, selftest=False
+PASS lab6_locks, harts=1, selftest=True
+PASS lab6_initexit, harts=1, selftest=False
+PASS lab6, harts=2, selftest=True
+PASS lab6_fork, harts=2, selftest=False
+PASS lab6_slots, harts=2, selftest=False
+PASS lab6_locks, harts=2, selftest=True
+PASS lab6_initexit, harts=2, selftest=False
+
+/tmp/lab9-fs-regression.log
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9-compat/full-19-1795262493702829156.img: 1047 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-compat/full-19-1795262493702829156.img
+created /home/oslab/.cache/ecnu-oslab/lab789/lab9-compat/full-2069-1795262504052181148.img: 3097 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/lab9-compat/full-2069-1795262504052181148.img
+
+/tmp/lab9-image-check.json
+{
+  "status": "passed",
+  "prefix": "target/vf2/lab9/sd0-0/buffers16384/kernel/kernel-vf2",
+  "entry": "0x40200000",
+  "text_offset": "0x200000",
+  "image_size": 1560576,
+  "file_size": 52960,
+  "managed_end": "0x48200000",
+  "sha256": "73aef7b4b85d4c1980ee81016715854f77446f09e03b7ad478a8d8b46ce9bd03"
+}
+
+/tmp/lab9-irq-default-audit.json
+{
+  "status": "passed",
+  "image": "/home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263776174789134.img",
+  "allocated_inodes": 20,
+  "allocated_data_blocks": 112,
+  "programs": {
+    "test_1": {
+      "size": 40616,
+      "sha256": "5414d34c58890de5b975c5424815bc1cae0b1e1aaf2879a3e0a1d3a35a7d5280"
+    },
+    "test_2": {
+      "size": 41968,
+      "sha256": "f28034c160bf0a6d9be88a15c5e1118d1fba893e768cac488944bbfa1c74e30e"
+    },
+    "test_3": {
+      "size": 42120,
+      "sha256": "5c5db334e3f29a38d9767ff36ea0b31cce8f207fe2e5b4ec0abe17a726993e68"
+    },
+    "test_4": {
+      "size": 42112,
+      "sha256": "1e543bb3310b9a090c8fcc833a804f3adba9468062774ff8efefb55cd3f61713"
+    },
+    "edge": {
+      "size": 60952,
+      "sha256": "b7dc86609783214f6be63233515039b4853ac34c5c6cbd13b404d17aafb2613e"
+    },
+    "elfprobe": {
+      "size": 42800,
+      "sha256": "51c3e7e5632fb37c313faf6685d68c57134b98a37518226939060dc6a8574b84"
+    },
+    "fsprobe": {
+      "size": 53896,
+      "sha256": "bc96d43c99649211c6f379573c1817d2b04bac779ecd9ecfe76bac75e1db49b6"
+    },
+    "persistprobe": {
+      "size": 39960,
+      "sha256": "f474bf9034c252ffdf5086a7b2efee9f9748341d0250f4d7fa541127b5fe691c"
+    }
+  }
+}
+
+target/qemu/lab9/buffers64/hart1/lab9/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 0 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+get 4 argument:
+arg 0 = test
+arg 1 = 111
+arg 2 = 222
+arg 3 = 333
+INPUT: \x00bad\x08 \x08\x08 \x08\x08 \x08helx\x08 \x08lo
+Hello
+Guess who I am
+How many free memory OUTPUT: \x00hello
+left
+Good job
+ERROR: hello
+COURSE_TEST_1_PASS
+file root: type = dir, inum = 0, nlink = 1, size = 832, offset = 0
+file ABC.txt: type = data, inum = 18, nlink = 1, size = 12390, offset = 12390
+read data = 498:ABCDEFGHIJKLMNOPQRST 499:ABCDEFGHIJKLMNOPQRST 
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+dentry 10: inum = 9, name = fsprobe
+dentry 11: inum = 10, name = persistprobe
+dentry 12: inum = 11, name = dev
+dentry 13: inum = 18, name = ABC.txt
+COURSE_TEST_2_PASS
+/
+/new_workdir
+/new_workdir/2025_12_22/19:00
+read data = hello world!
+file hello.txt: type = data, inum = 22, nlink = 2, size = 12, offset = 12
+/
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+COURSE_TEST_3_PASS
+directory dev:
+dentry 0: inum = 11, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 12, name = stdin
+dentry 3: inum = 13, name = stdout
+dentry 4: inum = 14, name = stderr
+dentry 5: inum = 15, name = zero
+dentry 6: inum = 16, name = null
+dentry 7: inum = 17, name = gpt0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+Q1: A1: Hi, I am gpt0!
+Q2: A2: Your procid is 5 and name is test_4.
+Q3: A3: We have 854 free pages in kernel space, 31709 free pages in user space!
+Q4: A4: Thanks for your kind words!
+COURSE_TEST_4_PASS
+/edge_dir/sub
+LAB9_EDGE_OOM_BEGIN
+LAB9_EDGE_PASS
+
+user exception: store/AMO page fault
+pid = 35, scause = 0x000000000000000f, sepc = 0x0000000000001382, stval = 0x0000000000001000
+
+user exception: load page fault
+pid = 36, scause = 0x000000000000000d, sepc = 0x000000000000123e, stval = 0x0000003ffaffe000
+LAB9_ELF_PASS
+LAB9_FS_PASS
+LAB9_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 63435 (python3)
+
+/home/oslab/lab/oslab/target/qemu/lab9/buffers64/hart1/lab9/image-audit.json
+{
+  "status": "passed",
+  "image": "/home/oslab/.cache/ecnu-oslab/lab789/lab9-1-1795263631531760324.img",
+  "allocated_inodes": 20,
+  "allocated_data_blocks": 112,
+  "programs": {
+    "test_1": {
+      "size": 40616,
+      "sha256": "5414d34c58890de5b975c5424815bc1cae0b1e1aaf2879a3e0a1d3a35a7d5280"
+    },
+    "test_2": {
+      "size": 41968,
+      "sha256": "f28034c160bf0a6d9be88a15c5e1118d1fba893e768cac488944bbfa1c74e30e"
+    },
+    "test_3": {
+      "size": 42120,
+      "sha256": "5c5db334e3f29a38d9767ff36ea0b31cce8f207fe2e5b4ec0abe17a726993e68"
+    },
+    "test_4": {
+      "size": 42112,
+      "sha256": "1e543bb3310b9a090c8fcc833a804f3adba9468062774ff8efefb55cd3f61713"
+    },
+    "edge": {
+      "size": 60952,
+      "sha256": "b7dc86609783214f6be63233515039b4853ac34c5c6cbd13b404d17aafb2613e"
+    },
+    "elfprobe": {
+      "size": 42800,
+      "sha256": "51c3e7e5632fb37c313faf6685d68c57134b98a37518226939060dc6a8574b84"
+    },
+    "fsprobe": {
+      "size": 53896,
+      "sha256": "bc96d43c99649211c6f379573c1817d2b04bac779ecd9ecfe76bac75e1db49b6"
+    },
+    "persistprobe": {
+      "size": 39960,
+      "sha256": "f474bf9034c252ffdf5086a7b2efee9f9748341d0250f4d7fa541127b5fe691c"
+    }
+  }
+}
+
+target/qemu/lab9/buffers64/lab9/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 1
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 0 is booting with OpenSBI!
+cpu 1 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+get 4 argument:
+arg 0 = test
+arg 1 = 111
+arg 2 = 222
+arg 3 = 333
+INPUT: \x00bad\x08 \x08\x08 \x08\x08 \x08helx\x08 \x08lo
+Hello
+Guess wOUTPUT: \x00hello
+ho I am
+How manERROR: y freehello
+ memory left
+Good job
+COURSE_TEST_1_PASS
+file root: type = dir, inum = 0, nlink = 1, size = 832, offset = 0
+file ABC.txt: type = data, inum = 18, nlink = 1, size = 12390, offset = 12390
+read data = 498:ABCDEFGHIJKLMNOPQRST 499:ABCDEFGHIJKLMNOPQRST 
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+dentry 10: inum = 9, name = fsprobe
+dentry 11: inum = 10, name = persistprobe
+dentry 12: inum = 11, name = dev
+dentry 13: inum = 18, name = ABC.txt
+COURSE_TEST_2_PASS
+/
+/new_workdir
+/new_workdir/2025_12_22/19:00
+read data = hello world!
+file hello.txt: type = data, inum = 22, nlink = 2, size = 12, offset = 12
+/
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+COURSE_TEST_3_PASS
+directory dev:
+dentry 0: inum = 11, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 12, name = stdin
+dentry 3: inum = 13, name = stdout
+dentry 4: inum = 14, name = stderr
+dentry 5: inum = 15, name = zero
+dentry 6: inum = 16, name = null
+dentry 7: inum = 17, name = gpt0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+Q1: A1: Hi, I am gpt0!
+Q2: A2: Your procid is 5 and name is test_4.
+Q3: A3: We have 854 free pages in kernel space, 31708 free pages in user space!
+Q4: A4: Thanks for your kind words!
+COURSE_TEST_4_PASS
+/edge_dir/sub
+LAB9_EDGE_OOM_BEGIN
+LAB9_EDGE_PASS
+
+user exception: store/AMO page fault
+pid = 35, scause = 0x000000000000000f, sepc = 0x0000000000001382, stval = 0x0000000000001000
+
+user exception: load page fault
+pid = 36, scause = 0x000000000000000d, sepc = 0x000000000000123e, stval = 0x0000003ffaffe000
+LAB9_ELF_PASS
+LAB9_FS_PASS
+LAB9_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 63435 (python3)
+
+/home/oslab/lab/oslab/target/qemu/lab9/buffers64/lab9/image-audit.json
+{
+  "status": "passed",
+  "image": "/home/oslab/.cache/ecnu-oslab/lab789/lab9-2-1795263669888292271.img",
+  "allocated_inodes": 20,
+  "allocated_data_blocks": 112,
+  "programs": {
+    "test_1": {
+      "size": 40616,
+      "sha256": "5414d34c58890de5b975c5424815bc1cae0b1e1aaf2879a3e0a1d3a35a7d5280"
+    },
+    "test_2": {
+      "size": 41968,
+      "sha256": "f28034c160bf0a6d9be88a15c5e1118d1fba893e768cac488944bbfa1c74e30e"
+    },
+    "test_3": {
+      "size": 42120,
+      "sha256": "5c5db334e3f29a38d9767ff36ea0b31cce8f207fe2e5b4ec0abe17a726993e68"
+    },
+    "test_4": {
+      "size": 42112,
+      "sha256": "1e543bb3310b9a090c8fcc833a804f3adba9468062774ff8efefb55cd3f61713"
+    },
+    "edge": {
+      "size": 60952,
+      "sha256": "b7dc86609783214f6be63233515039b4853ac34c5c6cbd13b404d17aafb2613e"
+    },
+    "elfprobe": {
+      "size": 42800,
+      "sha256": "51c3e7e5632fb37c313faf6685d68c57134b98a37518226939060dc6a8574b84"
+    },
+    "fsprobe": {
+      "size": 53896,
+      "sha256": "bc96d43c99649211c6f379573c1817d2b04bac779ecd9ecfe76bac75e1db49b6"
+    },
+    "persistprobe": {
+      "size": 39960,
+      "sha256": "f474bf9034c252ffdf5086a7b2efee9f9748341d0250f4d7fa541127b5fe691c"
+    }
+  }
+}
+
+target/qemu/lab9/buffers16384/lab9/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 1
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 0 is booting with OpenSBI!
+cpu 1 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+get 4 argument:
+arg 0 = test
+arg 1 = 111
+arg 2 = 222
+arg 3 = 333
+INPUT: \x00bad\x08 \x08\x08 \x08\x08 \x08helx\x08 \x08lo
+Hello
+Guess who I am
+How many free memory left
+Good job
+OUTPUT: \x00hello
+ERROR: hello
+COURSE_TEST_1_PASS
+file root: type = dir, inum = 0, nlink = 1, size = 832, offset = 0
+file ABC.txt: type = data, inum = 18, nlink = 1, size = 12390, offset = 12390
+read data = 498:ABCDEFGHIJKLMNOPQRST 499:ABCDEFGHIJKLMNOPQRST 
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+dentry 10: inum = 9, name = fsprobe
+dentry 11: inum = 10, name = persistprobe
+dentry 12: inum = 11, name = dev
+dentry 13: inum = 18, name = ABC.txt
+COURSE_TEST_2_PASS
+/
+/new_workdir
+/new_workdir/2025_12_22/19:00
+read data = hello world!
+file hello.txt: type = data, inum = 22, nlink = 2, size = 12, offset = 12
+/
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+directory root:
+dentry 0: inum = 0, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 1, name = ABCD.txt
+dentry 3: inum = 2, name = abcd.txt
+dentry 4: inum = 3, name = test_1
+dentry 5: inum = 4, name = test_2
+dentry 6: inum = 5, name = test_3
+dentry 7: inum = 6, name = test_4
+dentry 8: inum = 7, name = edge
+dentry 9: inum = 8, name = elfprobe
+COURSE_TEST_3_PASS
+directory dev:
+dentry 0: inum = 11, name = .
+dentry 1: inum = 0, name = ..
+dentry 2: inum = 12, name = stdin
+dentry 3: inum = 13, name = stdout
+dentry 4: inum = 14, name = stderr
+dentry 5: inum = 15, name = zero
+dentry 6: inum = 16, name = null
+dentry 7: inum = 17, name = gpt0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+Q1: A1: Hi, I am gpt0!
+Q2: A2: Your procid is 5 and name is test_4.
+Q3: A3: We have 854 free pages in kernel space, 31358 free pages in user space!
+Q4: A4: Thanks for your kind words!
+COURSE_TEST_4_PASS
+/edge_dir/sub
+LAB9_EDGE_OOM_BEGIN
+LAB9_EDGE_PASS
+
+user exception: store/AMO page fault
+pid = 35, scause = 0x000000000000000f, sepc = 0x0000000000001382, stval = 0x0000000000001000
+
+user exception: load page fault
+pid = 36, scause = 0x000000000000000d, sepc = 0x000000000000123e, stval = 0x0000003ffaffe000
+LAB9_ELF_PASS
+LAB9_FS_PASS
+LAB9_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 66061 (python3)
+
+target/qemu/lab9/buffers64/lab9_persist/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 1
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 1 is booting with OpenSBI!
+cpu 0 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+LAB9_COLD_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 63435 (python3)
+
+target/qemu/lab9/buffers16384/hart1/lab9_persist/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 0 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+LAB9_COLD_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 66061 (python3)
+
+target/qemu/lab9/buffers64/lab9_fs_stress/test.log
+
+OpenSBI v0.7
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name          : QEMU Virt Machine
+Platform HART Features : RV64ACDFIMSU
+Current Hart           : 0
+Firmware Base          : 0x80000000
+Firmware Size          : 128 KB
+Runtime SBI Version    : 0.2
+
+MIDELEG : 0x0000000000000222
+MEDELEG : 0x000000000000b109
+PMP0    : 0x0000000080000000-0x000000008001ffff (A)
+PMP1    : 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
+cpu 1 is booting with OpenSBI!
+cpu 0 is booting with OpenSBI!
+
+disk layout information:
+1. super block:  block[0]
+2. inode bitmap: block[1 - 2]
+3. inode region: block[3 - 1026]
+4. data bitmap:  block[1027 - 1066]
+5. data region:  block[1067 - 1311786]
+block size = 4096 Byte, total size = 5124 MB, total inode = 65536
+
+LAB9_FS_PASS
+qemu-system-riscv64: terminating on signal 15 from pid 66061 (python3)
+
+User header dependency what-if: 8 program and 2 library compilation units rebuild, PASS.
+Early ACK concurrency regression: see docs/verification/virtio-irq.txt (backported to Lab7/Lab8).
+Physical SDIO: NOT TESTED; dedicated partition required.

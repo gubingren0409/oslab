@@ -53,6 +53,9 @@ void fs_init()
     ready = true;
     sb_print();
     inode_init();
+    dentry_init();
+    file_init();
+    device_init();
 #if FS_TEST
     kernel_fs_test();
 #endif

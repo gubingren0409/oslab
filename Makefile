@@ -15,7 +15,12 @@ ifeq ($(filter $(CPUNUM),1 2),)
 $(error Lab6 supports CPUNUM=1 or CPUNUM=2)
 endif
 # 两个平台的生成文件完全隔离。
-TARGET = target/$(PLATFORM)/lab8
+TARGET = target/$(PLATFORM)/lab9
+LEGACY_TEST ?= $(if $(filter lab6 lab6_% lab8,$(TEST)),1,0)
+ifeq ($(LEGACY_TEST),1)
+TARGET := $(TARGET)/legacy
+CFLAGS += -DOSLAB_LEGACY_TEST
+endif
 FS_TEST ?= 0
 CFLAGS += -DFS_TEST=$(FS_TEST)
 ifneq ($(FS_TEST),0)
@@ -25,6 +30,9 @@ FS_ENABLED ?= 1
 NBUFFER ?= 16384
 SDIO_FS_FIRST_SECTOR ?= 0
 SDIO_FS_SECTORS ?= 0
+ifeq ($(PLATFORM),vf2)
+TARGET := $(TARGET)/sd$(SDIO_FS_FIRST_SECTOR)-$(SDIO_FS_SECTORS)
+endif
 CFLAGS += -DFS_ENABLED=$(FS_ENABLED) -DN_BUFFER=$(NBUFFER)
 CFLAGS += -DSDIO_FS_FIRST_SECTOR=$(SDIO_FS_FIRST_SECTOR)UL -DSDIO_FS_SECTORS=$(SDIO_FS_SECTORS)UL
 ifeq ($(FS_ENABLED),0)
@@ -45,7 +53,7 @@ TARGET := $(TARGET)/selftest
 CFLAGS += -DOSLAB_SELFTEST
 endif
 CFLAGS += -I$(TARGET)/user -Isrc/user -DQEMU_HARTS=$(CPUNUM)
-USER_CFLAGS = $(CFLAGS) -msmall-data-limit=0
+USER_CFLAGS = $(CFLAGS) -msmall-data-limit=0 -ffunction-sections
 ifeq ($(PLATFORM),vf2)
 CFLAGS += -DVISIONFIVE2
 endif
@@ -64,6 +72,10 @@ ELFUser = $(TARGET)/user/initcode.elf
 NakedUser = $(TARGET)/user/initcode.bin
 # initcode数组的头文件 (由proc.c直接#include)
 InitcodeHeader = $(TARGET)/user/initcode.h
+USER_PROGRAMS = test_1 test_2 test_3 test_4 edge elfprobe fsprobe persistprobe
+USER_PROGRAM_ELFS = $(addprefix $(TARGET)/user/,$(addsuffix .elf,$(USER_PROGRAMS)))
+USER_PROGRAM_OBJS = $(addprefix $(TARGET)/user/,$(addsuffix .o,$(USER_PROGRAMS)))
+USER_LIBRARY = $(TARGET)/user/help.o $(TARGET)/user/syscall.o
 
 # 收集内核源代码文件（.c和.S汇编文件）
 KernelSourceFile = $(wildcard $(KernelPath)/*.c) $(wildcard $(KernelPath)/*.S)
@@ -97,8 +109,8 @@ endif
 .PHONY: disk print-target
 print-target:
 	@echo $(TARGET)
-disk: $(TARGET)/mkfs | $(TARGET)
-	@test -e "$(DISKIMG)" || $(TARGET)/mkfs "$(DISKIMG)"
+disk: $(TARGET)/mkfs $(USER_PROGRAM_ELFS) | $(TARGET)
+	@test -e "$(DISKIMG)" || $(TARGET)/mkfs "$(DISKIMG)" 1310720 65536 $(USER_PROGRAM_ELFS)
 $(TARGET)/mkfs: src/mkfs/mkfs.c src/mkfs/mkfs.h | $(TARGET)
 	gcc -std=gnu17 -Wall -Wextra -Werror -O2 -D_FILE_OFFSET_BITS=64 $< -o $@
 
@@ -113,6 +125,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 # CFLAGS中的-MD会为每个.o生成同名的.d文件, 里面记录了该目标文件依赖的所有头文件
 # 不引入它们的话, 修改头文件(例如timer/type.h中的INTERVAL)不会触发重新编译
 -include $(KernelOBJ:.o=.d) $(UserOBJ:.o=.d)
+-include $(USER_PROGRAM_OBJS:.o=.d) $(USER_LIBRARY:.o=.d)
 
 # 生成GDB初始化文件
 .PHONY: FORCE
@@ -167,6 +180,15 @@ $(TARGET)/kernel/%.o: $(KernelPath)/%.c | $(TARGET)
 # 编译用户态程序
 $(TARGET)/user/initcode.o: $(UserSourceFile) | $(TARGET)
 	$(CC) $(USER_CFLAGS) -c -o $@ $<
+
+$(USER_PROGRAM_OBJS) $(USER_LIBRARY): $(TARGET)/user/%.o: src/user/%.c | $(TARGET)
+	$(CC) $(USER_CFLAGS) -c -o $@ $<
+
+$(TARGET)/user/%.elf: $(TARGET)/user/%.o $(USER_LIBRARY) user_test.ld | $(TARGET)
+	$(LD) $(LDFLAGS) -T user_test.ld $< $(USER_LIBRARY) -o $@
+
+.PHONY: programs
+programs: $(USER_PROGRAM_ELFS)
 
 $(TARGET)/kernel/selftest.o: tests/kernel_memory.c | $(TARGET)
 	$(CC) $(CFLAGS) -c -o $@ $<

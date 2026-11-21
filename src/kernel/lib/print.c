@@ -12,6 +12,7 @@ void print_init(void)
 {
     uart_init();
     spinlock_init(&print_lk, "printf");
+    cons_init();
 }
 
 /* %d %p */

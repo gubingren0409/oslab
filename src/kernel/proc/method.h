@@ -16,3 +16,4 @@ void proc_sleep(void *channel, spinlock_t *lock);
 void proc_wakeup(void *channel);
 void proc_exit(int status) __attribute__((noreturn));
 int proc_wait(uint64 user_addr);
+int proc_exec(char *path,char **argv);
