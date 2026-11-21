@@ -221,6 +221,9 @@ void virtio_disk_intr()
 {
     spinlock_acquire(&disk.vdisk_lock);
 
+    // Acknowledge before draining: a completion arriving after the last index
+    // check must retain its new interrupt, rather than be cleared by a late ACK.
+    *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3;
     __sync_synchronize();
     while (disk.used_idx != *(volatile uint16 *)&disk.used->id)
     {
@@ -236,7 +239,5 @@ void virtio_disk_intr()
 
         disk.used_idx++;
     }
-    *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3;
-
     spinlock_release(&disk.vdisk_lock);
 }
