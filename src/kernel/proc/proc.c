@@ -1,5 +1,6 @@
 #include "mod.h"
 #include "initcode.h"
+#include "../fs/mod.h"
 
 extern char trampoline[];
 extern void swtch(context_t *old, context_t *new);
@@ -44,6 +45,8 @@ void proc_return(void)
     proc_t *p = myproc();
     assert(p && spinlock_holding(&p->lk), "proc_return: no handoff lock");
     spinlock_release(&p->lk);
+    if (p == proczero)
+        fs_init();
     trap_user_return();
     panic("proc_return: returned");
 }
@@ -282,6 +285,8 @@ static void proc_reparent(proc_t *parent)
 void proc_exit(int status)
 {
     proc_t *p = myproc();
+    if (fs_ready())
+        buffer_release_owned();
     spinlock_acquire(&wait_lk);
     proc_reparent(p);
     proc_try_wakeup(p->parent);

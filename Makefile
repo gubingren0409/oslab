@@ -15,7 +15,17 @@ ifeq ($(filter $(CPUNUM),1 2),)
 $(error Lab6 supports CPUNUM=1 or CPUNUM=2)
 endif
 # 两个平台的生成文件完全隔离。
-TARGET = target/$(PLATFORM)
+TARGET = target/$(PLATFORM)/lab7
+FS_ENABLED ?= 1
+NBUFFER ?= 16384
+SDIO_FS_FIRST_SECTOR ?= 0
+SDIO_FS_SECTORS ?= 0
+CFLAGS += -DFS_ENABLED=$(FS_ENABLED) -DN_BUFFER=$(NBUFFER)
+CFLAGS += -DSDIO_FS_FIRST_SECTOR=$(SDIO_FS_FIRST_SECTOR)UL -DSDIO_FS_SECTORS=$(SDIO_FS_SECTORS)UL
+ifeq ($(FS_ENABLED),0)
+TARGET := $(TARGET)/nofs
+endif
+TARGET := $(TARGET)/buffers$(NBUFFER)
 ifeq ($(PLATFORM),qemu)
 ifneq ($(CPUNUM),2)
 TARGET := $(TARGET)/hart$(CPUNUM)
@@ -53,6 +63,11 @@ InitcodeHeader = $(TARGET)/user/initcode.h
 # 收集内核源代码文件（.c和.S汇编文件）
 KernelSourceFile = $(wildcard $(KernelPath)/*.c) $(wildcard $(KernelPath)/*.S)
 KernelSourceFile += $(wildcard $(KernelPath)/*/*.c) $(wildcard $(KernelPath)/*/*.S)
+ifeq ($(PLATFORM),qemu)
+KernelSourceFile := $(filter-out $(KernelPath)/fs/sdio.c,$(KernelSourceFile))
+else
+KernelSourceFile := $(filter-out $(KernelPath)/fs/virtio.c,$(KernelSourceFile))
+endif
 # 收集用户态源代码文件
 UserSourceFile = $(if $(TEST),tests/user/$(TEST).c,$(UserPath)/initcode.c)
 
@@ -68,6 +83,19 @@ endif
 QEMU     = qemu-system-riscv64  # 指定QEMU程序
 QEMUOPTS = -machine virt -bios default -kernel $(ELFKernel)  # 使用OpenSBI启动S-mode内核
 QEMUOPTS += -m 130M -smp $(CPUNUM) -nographic  # 物理内存从0x80000000到0x88200000
+DISKIMG ?= $(TARGET)/disk.img
+ifeq ($(FS_ENABLED),1)
+QEMUOPTS += -drive file=$(DISKIMG),if=none,format=raw,id=fs0 -device virtio-blk-device,drive=fs0,bus=virtio-mmio-bus.0
+run debug: disk
+endif
+
+.PHONY: disk print-target
+print-target:
+	@echo $(TARGET)
+disk: $(TARGET)/mkfs | $(TARGET)
+	@test -e "$(DISKIMG)" || $(TARGET)/mkfs "$(DISKIMG)"
+$(TARGET)/mkfs: src/mkfs/mkfs.c src/mkfs/mkfs.h | $(TARGET)
+	gcc -std=gnu17 -Wall -Wextra -Werror -O2 -D_FILE_OFFSET_BITS=64 $< -o $@
 
 # 调试相关配置
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)  # 动态计算GDB端口号
@@ -120,6 +148,7 @@ $(TARGET):
 	@mkdir -p $(TARGET)/kernel/trap
 	@mkdir -p $(TARGET)/kernel/proc
 	@mkdir -p $(TARGET)/kernel/syscall
+	@mkdir -p $(TARGET)/kernel/fs
 	@mkdir -p $(TARGET)/user
 
 # 编译规则：将汇编文件(.S)编译为目标文件(.o)

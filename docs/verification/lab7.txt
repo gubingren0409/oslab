@@ -1,0 +1,14 @@
+Lab7 VMware validation (2026-11-21)
+PASS lab7, harts=1, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/lab7-1-1795259642978599848.img
+PASS lab7, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/lab7-2-1795259655382395744.img
+PASS lab7, harts=2, buffers=16384, image=/home/oslab/.cache/ecnu-oslab/lab789/lab7-2-1795259673828582724.img
+PASS lab7_bitmap, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/bitmap-1795259687138353371.img
+PASS lab6_locks, harts=1, selftest=True
+PASS lab6_initexit, harts=1, selftest=False
+PASS lab6, harts=2, selftest=True
+PASS lab6_fork, harts=2, selftest=False
+PASS lab6_slots, harts=2, selftest=False
+PASS lab6_locks, harts=2, selftest=True
+Initial Lab6 one-hart heap/fork/slots: PASS (see target logs).
+VF2: make PLATFORM=vf2 build, exit 0; physical SDIO NOT TESTED.
+PASS lab6_initexit, harts=2, selftest=False

@@ -1,10 +1,18 @@
 #include "mod.h"
+#include "../fs/mod.h"
 
 // PLIC初始化
 void plic_init()
 {
     // 设置UART中断优先级
     *(volatile uint32 *)(PLIC_PRIORITY(UART_IRQ)) = 1;
+#if FS_ENABLED
+#ifdef VISIONFIVE2
+    *(volatile uint32 *)(PLIC_PRIORITY(SDIO_IRQ)) = 1;
+#else
+    *(volatile uint32 *)(PLIC_PRIORITY(VIRTIO_IRQ)) = 1;
+#endif
+#endif
 }
 
 // PLIC核心初始化
@@ -18,6 +26,14 @@ void plic_inithart()
         enable[word] = 0;
 #endif
     enable[UART_IRQ / 32] = 1u << (UART_IRQ % 32);
+#if FS_ENABLED
+#ifdef VISIONFIVE2
+    if (SDIO_FS_FIRST_SECTOR && SDIO_FS_SECTORS)
+        enable[SDIO_IRQ / 32] |= 1u << (SDIO_IRQ % 32);
+#else
+    enable[VIRTIO_IRQ / 32] |= 1u << (VIRTIO_IRQ % 32);
+#endif
+#endif
     // 设置响应阈值
     *(volatile uint32 *)PLIC_SPRIORITY(hartid) = 0;
 }

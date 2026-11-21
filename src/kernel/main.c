@@ -3,6 +3,7 @@
 #include "mem/mod.h"
 #include "proc/mod.h"
 #include "trap/mod.h"
+#include "fs/mod.h"
 
 // _entry在kernel.ld中定义，后续hart从该地址启动。
 extern void _entry_secondary(void);
@@ -28,6 +29,9 @@ void main(void)
         kvm_init();
         proc_init();
         trap_kernel_init();
+#if FS_ENABLED && !defined(VISIONFIVE2)
+        virtio_disk_init();
+#endif
 
         __sync_synchronize();
         init_state = 2;

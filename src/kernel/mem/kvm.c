@@ -1,4 +1,5 @@
 #include "mod.h"
+#include "../fs/mod.h"
 
 // in trap/trampoline.S
 extern char trampoline[];
@@ -29,6 +30,8 @@ static pgtbl_t pte_child(pte_t pte, bool transaction)
 // 只回收本次调用新建的中间页，不改变调用前的页表。
 pte_t *vm_getpte(pgtbl_t pgtbl, uint64 va, bool alloc)
 {
+    if (pgtbl == NULL)
+        pgtbl = kernel_pgtbl;
     if (pgtbl == NULL || va >= VA_MAX)
         return NULL;
     assert(((uint64)pgtbl % PGSIZE) == 0,
@@ -412,10 +415,17 @@ void kvm_init(void)
         goto fail;
 
 #ifdef VISIONFIVE2
+    if (vm_mappages(candidate, SDIO_BASE, SDIO_BASE, PGSIZE, PTE_R | PTE_W) < 0)
+        goto fail;
     if (vm_mappages(candidate, VF2_I2C5_BASE, VF2_I2C5_BASE, PGSIZE,
                     PTE_R | PTE_W) < 0 ||
         vm_mappages(candidate, VF2_SYSCRG_BASE, VF2_SYSCRG_BASE, PGSIZE,
                     PTE_R | PTE_W) < 0)
+        goto fail;
+#endif
+
+#ifndef VISIONFIVE2
+    if (vm_mappages(candidate, VIRTIO_BASE, VIRTIO_BASE, PGSIZE, PTE_R | PTE_W) < 0)
         goto fail;
 #endif
 

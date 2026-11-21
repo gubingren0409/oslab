@@ -8,16 +8,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 def run_image(test, marker, harts=2, selftest=False, timeout=12):
-    options = [f"TEST={test}", f"CPUNUM={harts}"]
+    options = [f"TEST={test}", f"CPUNUM={harts}", "FS_ENABLED=0"]
     if selftest:
         options.append("SELFTEST=1")
+        timeout = max(timeout, 12)
     subprocess.run(["make", "-j2", "build", *options], cwd=ROOT, check=True,
                    stdout=subprocess.DEVNULL)
-    target = ROOT / "target" / "qemu" / test
-    if harts != 2:
-        target = ROOT / "target" / "qemu" / f"hart{harts}" / test
-    if selftest:
-        target /= "selftest"
+    target = ROOT / subprocess.check_output(["make", "-s", "print-target", *options], cwd=ROOT, text=True).strip()
     command = ["qemu-system-riscv64", "-machine", "virt", "-bios", "default",
                "-kernel", str(target / "kernel/kernel-qemu.elf"), "-m", "130M",
                "-smp", str(harts), "-nographic"]

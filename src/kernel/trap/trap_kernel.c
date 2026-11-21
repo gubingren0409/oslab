@@ -130,6 +130,7 @@ void trap_kernel_handler()
 }
 
 // 外设中断处理 (基于PLIC，lab-3只需要识别和处理UART中断)
+#include "../fs/mod.h"
 void external_interrupt_handler()
 {
     int irq = plic_claim();
@@ -137,6 +138,19 @@ void external_interrupt_handler()
     // claim返回0表示当前没有待处理的外设中断。
     if (irq == 0)
         return;
+
+#if FS_ENABLED
+#ifdef VISIONFIVE2
+    if (irq == SDIO_IRQ) {
+        sdio_disk_intr();
+#else
+    if (irq == VIRTIO_IRQ) {
+        virtio_disk_intr();
+#endif
+        plic_complete(irq);
+        return;
+    }
+#endif
 
     if (irq == UART_IRQ)
     {
