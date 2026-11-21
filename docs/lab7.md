@@ -45,3 +45,14 @@ make run TEST=lab7 NBUFFER=8
 VF2 保留前序启动、UART、时钟、调度接口并接入课程 SDIO 驱动。必须显式指定经过核实的独立文件系统分区 `SDIO_FS_FIRST_SECTOR` 与 `SDIO_FS_SECTORS`，缺省禁止挂载，所有块读写检查边界；未使用框架的裸扇区破坏性测试。此次未接板，SDIO 实板读写尚未验收，不代表此前 TF 卡已经具有本实验数据分区。
 
 此阶段未实现日志/崩溃恢复，断电写入一致性不作保证。Lab0～Lab6 的原分支保留。
+
+## 并发磁盘中断回归
+
+VirtIO 改为先确认中断，再读取完成队列，防止清掉读取队列后新到达的完成通知。修复后的本分支通过单核一轮和双核三轮四进程并发写盘，每轮 512 次块写入，并在缓存回收后及 QEMU 退出后核对磁盘完整数据。原 Lab7 的单/双核、默认缓存和位图边界套件也已重新通过。
+
+```sh
+python3 tools/test-virtio.py --harts 1 --rounds 1
+python3 tools/test-virtio.py --harts 2 --rounds 3
+```
+
+诊断与验证见 [并发中断记录](verification/virtio-irq.txt)。

@@ -1,0 +1,50 @@
+VirtIO completion interrupt regression (2026-11-21)
+Diagnosis before fix: GDB used_idx=5534, used.id=5535, avail[1]=5535, IRQ status=0.
+The remaining request had completed in the device but its process was sleeping.
+Fix: ACK status before draining used entries; retain interrupts arriving after the last index check.
+Lab7 src/kernel/fs/virtio.c SHA256=6855f525db7b416559cf9f452ba548d59f0b9fd89af5c8f1cbc5b7a415e519cf
+Lab7 tests/user/lab7_irq.c SHA256=79562a414f1e42818339da9c439d2d077986af0ce2d0e9b27998825bcf35328d
+Lab7 tools/test-virtio.py SHA256=411e9611b04d1bc96c6f0d5a23164354fdc48658aee04f021679521df2482e3c
+Lab8 src/kernel/fs/virtio.c SHA256=5606f435b198b667f37efb15bd0df27f76e8d70c14253b99889541a3186f2ccc
+Lab8 tests/user/lab7_irq.c SHA256=79562a414f1e42818339da9c439d2d077986af0ce2d0e9b27998825bcf35328d
+Lab8 tools/test-virtio.py SHA256=411e9611b04d1bc96c6f0d5a23164354fdc48658aee04f021679521df2482e3c
+
+/tmp/lab7-irq-single.log
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-1-1795263647675319446.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=1 round=1 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-1-1795263647675319446.img
+
+/tmp/lab7-irq-smp.log
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263667518806018.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=2 round=1 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263667518806018.img
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263672959828524.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=2 round=2 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263672959828524.img
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263679830930682.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=2 round=3 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263679830930682.img
+
+/tmp/lab7-backport.log
+created /home/oslab/.cache/ecnu-oslab/lab789/lab7-1-1795263702594421708.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab7, harts=1, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/lab7-1-1795263702594421708.img
+created /home/oslab/.cache/ecnu-oslab/lab789/lab7-2-1795263723804242941.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab7, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/lab7-2-1795263723804242941.img
+created /home/oslab/.cache/ecnu-oslab/lab789/lab7-2-1795263743435227467.img: 1311787 blocks, 65536 inodes (sparse)
+PASS lab7, harts=2, buffers=16384, image=/home/oslab/.cache/ecnu-oslab/lab789/lab7-2-1795263743435227467.img
+created /home/oslab/.cache/ecnu-oslab/lab789/bitmap-1795263769354700200.img: 66569 blocks, 65537 inodes (sparse)
+PASS lab7_bitmap, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/bitmap-1795263769354700200.img
+
+/tmp/lab8-irq-single.log
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-1-1795263777627503172.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=1 round=1 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-1-1795263777627503172.img
+
+/tmp/lab8-irq-smp.log
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263801842527896.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=2 round=1 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263801842527896.img
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263808781902558.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=2 round=2 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263808781902558.img
+created /home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263814630453938.img: 1311787 blocks, 65536 inodes (sparse)
+PASS virtio harts=2 round=3 image=/home/oslab/.cache/ecnu-oslab/lab789/virtio/irq-2-1795263814630453938.img
+
+/tmp/lab8-backport.log
+created /home/oslab/.cache/ecnu-oslab/lab789/full-18-1795263835848858827.img: 1046 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/full-18-1795263835848858827.img
+created /home/oslab/.cache/ecnu-oslab/lab789/full-2068-1795263842898179510.img: 3096 blocks, 65536 inodes (sparse)
+PASS lab8, harts=2, buffers=8, image=/home/oslab/.cache/ecnu-oslab/lab789/full-2068-1795263842898179510.img
