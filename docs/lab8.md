@@ -49,3 +49,14 @@ make -j2 PLATFORM=vf2 build
 ## 限制与兼容性
 
 开发板 SDIO 仍要求显式配置独立数据分区起始扇区和长度，缺省禁止挂载。本次只完成 VF2 构建，未进行实板存储写入。文件系统尚无日志和断电恢复功能。Lab0～Lab7 独立分支及各阶段系统调用接口保留。
+
+## 并发磁盘中断回归
+
+VirtIO 在读取完成队列后再确认中断，会有机会清掉刚到达的新完成通知。改为先确认中断，再读取并处理完成队列。该修复通过单核一轮、双核三轮四进程并发写盘；每轮完成 512 次块写入，刷新缓存后读回并比较完整数据，QEMU 退出后还直接核对镜像。
+
+```sh
+python3 tools/test-virtio.py --harts 1 --rounds 1
+python3 tools/test-virtio.py --harts 2 --rounds 3
+```
+
+Lab8 受限磁盘用例也已重新通过。诊断与验证见 [并发中断记录](verification/virtio-irq.txt)。
